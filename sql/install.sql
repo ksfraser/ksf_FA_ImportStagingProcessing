@@ -5,7 +5,7 @@
 -- ============================================================================
 -- staging_customers - Unified customer staging from all sources
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS {TABLE_PREFIX}staging_customers (
+CREATE TABLE IF NOT EXISTS TB_PREFstaging_customers (
     id INT(11) NOT NULL AUTO_INCREMENT,
     source VARCHAR(32) NOT NULL COMMENT 'Source module: woocommerce, square_api, square_csv, paypal, bank',
     source_customer_id VARCHAR(64) DEFAULT NULL COMMENT 'Customer ID in source system',
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS {TABLE_PREFIX}staging_customers (
 -- ============================================================================
 -- staging_transactions - Unified transaction staging from all sources
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS {TABLE_PREFIX}staging_transactions (
+CREATE TABLE IF NOT EXISTS TB_PREFstaging_transactions (
     id INT(11) NOT NULL AUTO_INCREMENT,
     source VARCHAR(32) NOT NULL COMMENT 'Source module: woocommerce, square_api, square_csv, paypal, bank',
     source_transaction_id VARCHAR(64) DEFAULT NULL COMMENT 'Transaction ID in source system',
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS {TABLE_PREFIX}staging_transactions (
 -- ============================================================================
 -- staging_line_items - Line items per staged transaction
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS {TABLE_PREFIX}staging_line_items (
+CREATE TABLE IF NOT EXISTS TB_PREFstaging_line_items (
     id INT(11) NOT NULL AUTO_INCREMENT,
     staging_transaction_id INT(11) NOT NULL,
     sku VARCHAR(64) DEFAULT NULL,
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS {TABLE_PREFIX}staging_line_items (
 -- ============================================================================
 -- staging_mapping - Field mapping configuration per source
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS {TABLE_PREFIX}staging_mapping (
+CREATE TABLE IF NOT EXISTS TB_PREFstaging_mapping (
     id INT(11) NOT NULL AUTO_INCREMENT,
     source VARCHAR(32) NOT NULL COMMENT 'Source module',
     source_field VARCHAR(128) NOT NULL COMMENT 'Field name in source data',
@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS {TABLE_PREFIX}staging_mapping (
 -- ============================================================================
 -- staging_log - Processing audit trail
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS {TABLE_PREFIX}staging_log (
+CREATE TABLE IF NOT EXISTS TB_PREFstaging_log (
     id INT(11) NOT NULL AUTO_INCREMENT,
     record_type VARCHAR(32) NOT NULL COMMENT 'customer, transaction, line_item, payment',
     record_id INT(11) NOT NULL COMMENT 'ID in the respective staging table',
@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS {TABLE_PREFIX}staging_log (
 -- Tracks individual payment tenders with fee/net calculation for reconciliation
 -- Supports: credit_card, cash, gift_card, check, other
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS {TABLE_PREFIX}staging_payments (
+CREATE TABLE IF NOT EXISTS TB_PREFstaging_payments (
     id INT(11) NOT NULL AUTO_INCREMENT,
     source VARCHAR(32) NOT NULL COMMENT 'Source module: woocommerce, square_api, square_csv, paypal, bank',
     source_payment_id VARCHAR(64) DEFAULT NULL COMMENT 'Payment ID in source system',
@@ -170,7 +170,7 @@ CREATE TABLE IF NOT EXISTS {TABLE_PREFIX}staging_payments (
 -- staging_payment_matches - Payment reconciliation match audit trail
 -- Tracks each match attempt: staged payment → FA bank/debtor transaction
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS {TABLE_PREFIX}staging_payment_matches (
+CREATE TABLE IF NOT EXISTS TB_PREFstaging_payment_matches (
     id INT(11) NOT NULL AUTO_INCREMENT,
     staging_payment_id INT(11) NOT NULL COMMENT 'FK to staging_payments.id',
     match_type VARCHAR(16) NOT NULL COMMENT 'exact, fuzzy, manual, none',
