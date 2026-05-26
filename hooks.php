@@ -4,7 +4,7 @@ declare(strict_types=1);
 define('SS_ksf_FA_ImportStagingProcessing', 109 << 8);
 
 define('KSF_IMPORT_STAGING_MODULE_NAME', 'ksf_FA_ImportStagingProcessing');
-define('KSF_IMPORT_STAGING_CAPABILITIES', 'staging,matching,mapping,audit');
+define('KSF_IMPORT_STAGING_CAPABILITIES', 'staging,matching,mapping,audit,reconciliation');
 
 class hooks_ksf_FA_ImportStagingProcessing extends hooks
 {
@@ -27,12 +27,16 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
     {
         $capabilities = [
             'staging' => [
-                'description' => 'Stage customers and transactions from any source',
-                'methods' => ['stageCustomer', 'stageTransaction', 'getStagedCustomers', 'getStagedTransactions', 'updateStatus'],
+                'description' => 'Stage customers, transactions, and payments from any source',
+                'methods' => ['stageCustomer', 'stageTransaction', 'stagePayment', 'getStagedCustomers', 'getStagedTransactions', 'getStagedPayments', 'updateStatus'],
             ],
             'matching' => [
                 'description' => 'Match and process staged transactions',
                 'methods' => ['matchTransactions', 'processQueue', 'approveMatch', 'rejectMatch'],
+            ],
+            'reconciliation' => [
+                'description' => 'Reconcile staged payments against FA bank/debtor transactions',
+                'methods' => ['reconcilePayment', 'reconcilePaymentQueue', 'getStagedPayments', 'getPaymentMatchHistory', 'getPaymentStatusCounts'],
             ],
             'mapping' => [
                 'description' => 'Manage field mapping configuration',
@@ -55,7 +59,7 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
             $data['error'] = 'No capability specified';
             return false;
         }
-        $capabilities = ['staging', 'matching', 'mapping', 'audit'];
+        $capabilities = ['staging', 'matching', 'mapping', 'audit', 'reconciliation'];
         $hasCapability = in_array($capability, $capabilities);
         $data['has_capability'] = $hasCapability;
         $data['capability_checked'] = $capability;
@@ -79,6 +83,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
         if (strpos($request, 'audit:') === 0) {
             return $this->handleAuditRequest(substr($request, 6), $data, $opts);
+        }
+        if (strpos($request, 'reconciliation:') === 0) {
+            return $this->handleReconciliationRequest(substr($request, 15), $data, $opts);
         }
 
         switch ($request) {
@@ -123,6 +130,21 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
                     $data['success'] = false;
                 }
                 return $data['result'] ?? null;
+            case 'stagePayment':
+                $source = $opts['source'] ?? $data['source'] ?? '';
+                $paymentData = $opts['payment'] ?? $data['payment'] ?? [];
+                $stagingTransactionId = isset($opts['staging_transaction_id'])
+                    ? (int)$opts['staging_transaction_id']
+                    : (isset($data['staging_transaction_id']) ? (int)$data['staging_transaction_id'] : null);
+                try {
+                    $result = $service->stagePayment($paymentData, $source, $stagingTransactionId);
+                    $data['result'] = $result->toArray();
+                    $data['success'] = true;
+                } catch (\Exception $e) {
+                    $data['error'] = $e->getMessage();
+                    $data['success'] = false;
+                }
+                return $data['result'] ?? null;
             case 'getStagedCustomers':
                 $filters = $opts['filters'] ?? $data['filters'] ?? [];
                 $data['result'] = array_map(fn($c) => $c->toArray(), $service->getStagedCustomers($filters));
@@ -130,6 +152,10 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
             case 'getStagedTransactions':
                 $filters = $opts['filters'] ?? $data['filters'] ?? [];
                 $data['result'] = array_map(fn($t) => $t->toArray(), $service->getStagedTransactions($filters));
+                return $data['result'];
+            case 'getStagedPayments':
+                $filters = $opts['filters'] ?? $data['filters'] ?? [];
+                $data['result'] = array_map(fn($p) => $p->toArray(), $service->getStagedPayments($filters));
                 return $data['result'];
             case 'updateStatus':
                 $id = (int)($opts['id'] ?? $data['id'] ?? 0);
@@ -165,6 +191,57 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
+    private function handleReconciliationRequest($action, &$data, $opts)
+    {
+        $service = $this->getStagingService();
+        switch ($action) {
+            case 'reconcilePayment':
+                $paymentId = (int)($opts['payment_id'] ?? $data['payment_id'] ?? 0);
+                $faRecord = $opts['fa_record'] ?? $data['fa_record'] ?? [];
+                $result = $service->reconcilePayment($paymentId, $faRecord);
+                $data['result'] = [
+                    'success' => $result->isSuccess(),
+                    'record_id' => $result->getRecordId(),
+                    'action' => $result->getAction(),
+                    'errors' => $result->getErrors(),
+                ];
+                $data['success'] = $result->isSuccess();
+                return $data['result'];
+            case 'reconcilePaymentQueue':
+                $source = $opts['source'] ?? $data['source'] ?? null;
+                $result = $service->reconcilePaymentQueue($source);
+                $data['result'] = [
+                    'success' => $result->isSuccess(),
+                    'record_id' => $result->getRecordId(),
+                    'action' => $result->getAction(),
+                    'errors' => $result->getErrors(),
+                ];
+                $data['success'] = $result->isSuccess();
+                return $data['result'];
+            case 'getStagedPayments':
+                $filters = $opts['filters'] ?? $data['filters'] ?? [];
+                $data['result'] = array_map(
+                    fn($p) => $p->toArray(),
+                    $service->getStagedPayments($filters)
+                );
+                return $data['result'];
+            case 'getPaymentMatchHistory':
+                $paymentId = (int)($opts['payment_id'] ?? $data['payment_id'] ?? 0);
+                $data['result'] = array_map(
+                    fn($m) => $m->toArray(),
+                    $service->getPaymentMatchHistory($paymentId)
+                );
+                return $data['result'];
+            case 'getPaymentStatusCounts':
+                $source = $opts['source'] ?? $data['source'] ?? null;
+                $data['result'] = $service->getPaymentStatusCounts($source);
+                return $data['result'];
+            default:
+                $data['error'] = 'Unknown reconciliation action: ' . $action;
+                return null;
+        }
+    }
+
     private function handleMappingRequest($action, &$data, $opts)
     {
         $data['error'] = 'Mapping actions not yet implemented in hooks handler: ' . $action;
@@ -183,12 +260,16 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         $db = new \ksf_ModulesDAO();
         $customerDAO = new \Ksfraser\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
         $transactionDAO = new \Ksfraser\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
+        $paymentDAO = new \Ksfraser\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
+        $paymentMatchDAO = new \Ksfraser\ImportStaging\DAO\StagingPaymentMatchDAO($tablePrefix, $db);
         $logDAO = new \Ksfraser\ImportStaging\DAO\StagingLogDAO($tablePrefix, $db);
         $txnValidator = new \Ksfraser\ImportStaging\Validators\TransactionValidator();
         $custValidator = new \Ksfraser\ImportStaging\Validators\CustomerValidator();
+        $paymentValidator = new \Ksfraser\ImportStaging\Validators\PaymentValidator();
         $matchingService = new \Ksfraser\ImportStaging\Services\MatchingService();
         return new \Ksfraser\ImportStaging\Services\StagingService(
-            $customerDAO, $transactionDAO, $logDAO, $txnValidator, $custValidator, $matchingService
+            $customerDAO, $transactionDAO, $paymentDAO, $paymentMatchDAO,
+            $logDAO, $txnValidator, $custValidator, $paymentValidator, $matchingService
         );
     }
 

@@ -32,6 +32,7 @@ class StagingTransaction
     public function __construct(string $source)
     {
         $this->source = $source;
+        $this->id = null;
         $this->status = 'staged';
         $this->currency = 'CAD';
         $this->totalAmount = 0.0;
@@ -39,6 +40,20 @@ class StagingTransaction
         $this->tipAmount = 0.0;
         $this->discountAmount = 0.0;
         $this->shippingAmount = 0.0;
+        $this->sourceTransactionId = null;
+        $this->sourceOrderId = null;
+        $this->sourcePaymentId = null;
+        $this->transactionDate = null;
+        $this->customerName = null;
+        $this->customerEmail = null;
+        $this->customerId = null;
+        $this->rawJson = null;
+        $this->matchConfidence = null;
+        $this->faInvoiceNo = null;
+        $this->faDebtorNo = null;
+        $this->errorLog = null;
+        $this->createdAt = null;
+        $this->updatedAt = null;
     }
 
     public function getId(): ?int { return $this->id; }

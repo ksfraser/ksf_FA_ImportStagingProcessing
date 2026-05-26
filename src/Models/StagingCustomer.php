@@ -27,7 +27,23 @@ class StagingCustomer
     public function __construct(string $source)
     {
         $this->source = $source;
+        $this->id = null;
         $this->status = 'staged';
+        $this->sourceCustomerId = null;
+        $this->name = null;
+        $this->email = null;
+        $this->phone = null;
+        $this->addressLine1 = null;
+        $this->addressLine2 = null;
+        $this->city = null;
+        $this->province = null;
+        $this->postalCode = null;
+        $this->country = null;
+        $this->rawJson = null;
+        $this->faDebtorNo = null;
+        $this->errorLog = null;
+        $this->createdAt = null;
+        $this->updatedAt = null;
     }
 
     public function getId(): ?int { return $this->id; }

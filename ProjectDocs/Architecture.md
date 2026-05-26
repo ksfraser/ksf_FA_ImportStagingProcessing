@@ -16,8 +16,8 @@
 ├──────────────────────────────────────────────────────────────┤
 │               Data Access Layer (src/DAO/)                    │
 │  DAO classes via ksf_ModulesDAO abstraction                   │
-│  StagingCustomerDAO, StagingTransactionDAO                    │
-│  StagingMappingDAO, StagingLogDAO                             │
+│  StagingCustomerDAO, StagingTransactionDAO, StagingPaymentDAO │
+│  StagingPaymentMatchDAO, StagingMappingDAO, StagingLogDAO     │
 ├──────────────────────────────────────────────────────────────┤
 │               Infrastructure Layer                            │
 │  hooks.php        — FA hooks integration (4 standard methods) │
@@ -32,7 +32,8 @@
 
 ### Strategy Pattern
 - **Processors**: Each source type (WooCommerce, Square, PayPal, Bank) has its own processor implementing `ProcessorInterface`
-- **Matching**: Pluggable match strategies (amount, date, customer)
+- **Matching**: Pluggable match strategies (amount, date, customer, payment method, reference)
+- **Payment Reconciliation**: Score-based matching (amount 40%, date 25%, reference 20%, method 15%)
 
 ### Factory Pattern
 - Service creation with dependency injection
@@ -45,7 +46,7 @@
 - Other modules subscribe via hooks or event listeners
 
 ### DTO Pattern
-- `StagingCustomer`, `StagingTransaction`, `StagingMapping` as data transfer objects
+- `StagingCustomer`, `StagingTransaction`, `StagingMapping`, `StagingPayment`, `StagingPaymentMatch` as data transfer objects
 
 ### Polymorphism over Conditionals
 - Use SRP classes and polymorphism instead of if/then/else/switch
@@ -59,10 +60,11 @@
 |-------|---------|---------|
 | `staging.customer.staged` | Customer record inserted | StagingCustomer |
 | `staging.transaction.staged` | Transaction record inserted | StagingTransaction |
+| `staging.payment.staged` | Payment record inserted | StagingPayment |
+| `staging.payment.reconciled` | Payment reconciled against FA | StagingPayment + ProcessingResult |
 | `staging.record.validated` | Record validated | Record + ValidationResult |
 | `staging.record.matched` | Match found | Record + MatchResult |
 | `staging.record.processed` | Record processed into FA | Record + ProcessingResult |
-| `staging.record.reconciled` | Record reconciled | Record + ReconciliationResult |
 
 ### Subscription
 ```php
@@ -80,38 +82,40 @@ hook_invoke('ksf_FA_ImportStagingProcessing', 'on', $data, [
 ```
 [Source Module]
      │
-     ▼
-┌─────────────┐
-│  Stage       │  → staging_transactions/staging_customers
-│  (insert)    │  → status = 'staged'
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Validate    │  → ValidationService
-│  (rules)     │  → status = 'validated' or 'failed'
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Match       │  → MatchingService (scoring)
-│  (compare)   │  → confidence >= 0.95: auto-approve
-│              │  → 0.80 <= conf < 0.95: needs_review
-│              │  → conf < 0.80: unmatched
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Process     │  → ProcessingPipeline
-│  (create FA) │  → Creates/matches FA entities
-│              │  → status = 'processed' or 'failed'
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Audit       │  → staging_log
-│  (log)       │  → All actions recorded
-└─────────────┘
+     ├───────────────── Transaction/Order Path ─────────────────┐
+     │                                                          │
+     ▼                                                          │
+┌─────────────┐                                                 │
+│  Stage       │  → staging_transactions/staging_customers      │
+│  (insert)    │  → status = 'staged'                           │
+└──────┬──────┘                                                 │
+       │                                                        │
+       ▼                                                        │
+┌─────────────┐                                                 │
+│  Validate    │  → ValidationService                           │
+│  (rules)     │  → status = 'validated' or 'failed'            │
+└──────┬──────┘                                                 │
+       │                                                        │
+       ▼                                                        │
+┌─────────────┐    ┌──────────────────┐                         │
+│  Match       │    │  Payment Path    │                         │
+│  (compare)   │    │                  │                         │
+└──────┬──────┘    └──────────────────┘                         │
+       │               │                                         │
+       ▼               ▼                                         │
+┌─────────────┐  ┌──────────────────┐                            │
+│  Process     │  │  Reconcile       │  → staging_payments       │
+│  (create FA) │  │  (match to FA    │  → status = 'reconciled'  │
+│  entities    │  │   bank/debtor)   │  → After processing       │
+└──────┬──────┘  └────────┬─────────┘                            │
+       │                  │                                       │
+       └──────────────────┼───────────────────────────────────────┘
+                          │
+                          ▼
+                  ┌─────────────┐
+                  │  Audit       │  → staging_log
+                  │  (log)       │  → All actions recorded
+                  └─────────────┘
 ```
 
 ---

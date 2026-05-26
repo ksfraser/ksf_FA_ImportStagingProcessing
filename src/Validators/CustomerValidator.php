@@ -46,7 +46,7 @@ class CustomerValidator implements ValidationServiceInterface
             }
         }
         if (empty($errors)) {
-            return ValidationResult::valid();
+            return ValidationResult::valid($warnings);
         }
         return ValidationResult::invalid($errors, $warnings);
     }

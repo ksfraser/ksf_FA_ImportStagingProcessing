@@ -22,9 +22,9 @@ class ValidationResult
     public function hasErrors(): bool { return !empty($this->errors); }
     public function hasWarnings(): bool { return !empty($this->warnings); }
 
-    public static function valid(): self
+    public static function valid(array $warnings = []): self
     {
-        return new self(true);
+        return new self(true, [], $warnings);
     }
 
     public static function invalid(array $errors, array $warnings = []): self

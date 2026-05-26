@@ -314,4 +314,47 @@ Admin/System        MatchingService        ProcessingPipeline     StagingTransac
 │ details                              │
 │ created_at                           │
 └──────────────────────────────────────┘
+
+┌──────────────────────────────────────┐
+│  staging_payments                    │
+├──────────────────────────────────────┤
+│ PK: id                               │
+│ source (woocommerce/square/paypal/   │
+│        bank)                         │
+│ source_payment_id                    │
+│ source_transaction_id                │
+│ staging_transaction_id (FK)          │
+│ amount, currency                     │
+│ fee, net_amount                      │
+│ payment_method (credit_card/cash/    │
+│                gift_card/check/other)│
+│ payment_date                         │
+│ reference                            │
+│ card_brand, pan_suffix               │
+│ card_entry_method                    │
+│ raw_json (LONGTEXT)                  │
+│ status (staged/validated/matched/    │
+│         reconciled/failed)           │
+│ match_confidence                     │
+│ fa_trans_type, fa_trans_no           │
+│ fa_bank_account                      │
+│ error_log                            │
+│ created_at / updated_at              │
+└──────────────────────────────────────┘
+
+┌──────────────────────────────────────┐
+│  staging_payment_matches             │
+├──────────────────────────────────────┤
+│ PK: id                               │
+│ staging_payment_id (FK)              │
+│ match_type (exact/fuzzy/partial/none)│
+│ match_confidence                     │
+│ fa_trans_type, fa_trans_no           │
+│ fa_bank_account                      │
+│ match_status (matched/needs_review/  │
+│              rejected)               │
+│ matched_by (system/user)             │
+│ notes                                │
+│ created_at / updated_at              │
+└──────────────────────────────────────┘
 ```

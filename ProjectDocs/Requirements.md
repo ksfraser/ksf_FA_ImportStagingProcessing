@@ -94,6 +94,20 @@ FrontAccounting (FA) imports data from multiple third-party sources (WooCommerce
 | FR-04.02 | System shall allow other modules to subscribe to staging events | Observer pattern |
 | FR-04.03 | System shall log all events for audit purposes | staging_log |
 
+### FR-06: Payment Staging & Reconciliation
+| ID | Requirement | Notes |
+|----|-------------|-------|
+| FR-06.01 | System shall provide unified `staging_payments` table for all sources | Tenders, fees, net amounts, card details |
+| FR-06.02 | System shall provide `staging_payment_matches` table for reconciliation audit trail | Each match attempt logged |
+| FR-06.03 | System shall stage individual payment tenders with full metadata | card_brand, pan_suffix, entry_method, fees |
+| FR-06.04 | System shall calculate net_amount = amount - fee for each payment | Auto-calculated if not provided |
+| FR-06.05 | System shall link payments to parent staging_transactions via FK | staging_transaction_id |
+| FR-06.06 | System shall score payment matches against FA bank/debtor transactions | amount 40%, date 25%, reference 20%, method 15% |
+| FR-06.07 | System shall auto-reconcile payments with >= 95% match confidence | Configurable threshold |
+| FR-06.08 | System shall flag payment matches between 80-95% for manual review | Configurable threshold |
+| FR-06.09 | System shall provide reconciliation queue processing | Batch reconcile staged payments |
+| FR-06.10 | System shall track payment reconciliation status lifecycles | staged, validated, matched, reconciled, failed |
+
 ### FR-05: Configuration & Administration
 | ID | Requirement | Notes |
 |----|-------------|-------|

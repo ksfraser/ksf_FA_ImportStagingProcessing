@@ -168,6 +168,45 @@ class MatchingService implements MatchingServiceInterface
         return $valueA === $valueB ? 1.0 : 0.0;
     }
 
+    public function calculatePaymentMatchScore(array $payment, array $faRecord): float
+    {
+        $score = 0.0;
+        $amountWeight = 0.4;
+        $dateWeight = 0.25;
+        $referenceWeight = 0.20;
+        $methodWeight = 0.15;
+
+        if (isset($payment['amount'], $faRecord['amount'])) {
+            $score += $this->matchAmount((float)$payment['amount'], (float)$faRecord['amount']) * $amountWeight;
+        }
+        if (isset($payment['payment_date'], $faRecord['payment_date'])) {
+            $score += $this->matchDate($payment['payment_date'], $faRecord['payment_date']) * $dateWeight;
+        }
+        if (isset($payment['reference'], $faRecord['reference'])) {
+            $score += $this->matchName($payment['reference'], $faRecord['reference']) * $referenceWeight;
+        }
+        if (isset($payment['payment_method'], $faRecord['payment_method'])) {
+            $score += $this->exactMatch($payment['payment_method'], $faRecord['payment_method']) * $methodWeight;
+        }
+
+        $totalWeight = $amountWeight + $dateWeight + $referenceWeight + $methodWeight;
+        return $totalWeight > 0 ? $score / $totalWeight : 0.0;
+    }
+
+    public function determinePaymentMatchType(float $score): string
+    {
+        if ($score >= $this->autoApproveThreshold) {
+            return 'exact';
+        }
+        if ($score >= $this->reviewThreshold) {
+            return 'fuzzy';
+        }
+        if ($score > 0.0) {
+            return 'partial';
+        }
+        return 'none';
+    }
+
     private function determineMatchType(float $score): string
     {
         if ($score >= $this->autoApproveThreshold) {

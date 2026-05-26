@@ -20,8 +20,12 @@ class StagingMapping
         $this->source = $source;
         $this->sourceField = $sourceField;
         $this->targetField = $targetField;
+        $this->id = null;
         $this->transform = 'none';
         $this->isRequired = false;
+        $this->defaultValue = null;
+        $this->createdAt = null;
+        $this->updatedAt = null;
     }
 
     public function getId(): ?int { return $this->id; }

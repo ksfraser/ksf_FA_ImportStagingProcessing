@@ -36,6 +36,16 @@
 | **FR-05.02** | Staging management UI | UC-05 | `pages/*` | TC-05.02 |
 | **FR-05.03** | Error resolution interface | UC-05 | `pages/*` | TC-05.03 |
 | **FR-05.04** | Error logging with context | UC-03 | `src/DAO/StagingLogDAO.php` | TC-05.04 |
+| **FR-06.01** | staging_payments unified table | UC-07: Stage Payment | `sql/install.sql`, `src/DAO/StagingPaymentDAO.php` | TC-06.01 |
+| **FR-06.02** | staging_payment_matches audit table | UC-08: Reconcile Payment | `sql/install.sql`, `src/DAO/StagingPaymentMatchDAO.php` | TC-06.02 |
+| **FR-06.03** | Stage individual payment tenders | UC-07 | `src/Models/StagingPayment.php` | TC-06.03 |
+| **FR-06.04** | Auto-calculate net_amount | UC-07 | `src/Services/StagingService.php` | TC-06.04 |
+| **FR-06.05** | Link payments to staging_transactions | UC-07 | `src/Models/StagingPayment.php` | TC-06.05 |
+| **FR-06.06** | Payment matching scoring | UC-08 | `src/Services/MatchingService.php` | TC-06.06 |
+| **FR-06.07** | Auto-reconcile >= 95% | UC-08 | `src/Services/StagingService.php` | TC-06.07 |
+| **FR-06.08** | Flag 80-95% for review | UC-08 | `src/Services/StagingService.php` | TC-06.08 |
+| **FR-06.09** | Reconcile queue processing | UC-08 | `src/Services/StagingService.php` | TC-06.09 |
+| **FR-06.10** | Payment status lifecycle | UC-07, UC-08 | `src/Models/StagingPayment.php` | TC-06.10 |
 | **NFR-01** | PHP >=7.3 compatibility | All | `composer.json` | CI |
 | **NFR-02** | FA 2.4.x integration | All | `hooks.php` | Manual |
 | **NFR-03** | TB_PREF convention | All | All SQL queries | Code review |
@@ -57,3 +67,5 @@
 | UC-04 | Match and Process Transactions | User or system initiates processing | FA Administrator / System |
 | UC-05 | Configure Mappings | Administrator sets up field mapping | FA Administrator |
 | UC-06 | Upgrade Staging Schema | Module installation/update | System (automatic) |
+| UC-07 | Stage Payment | Source module provides payment data | Source Module (WooCommerce/Square) |
+| UC-08 | Reconcile Payment | User or system initiates reconciliation | FA Administrator / System |
