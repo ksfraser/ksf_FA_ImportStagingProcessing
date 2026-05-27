@@ -168,6 +168,26 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
                     $data['success'] = false;
                 }
                 return $data['result'] ?? null;
+            case 'stageOrUpdatePayment':
+                $source = $opts['source'] ?? $data['source'] ?? '';
+                $paymentData = $opts['payment'] ?? $data['payment'] ?? [];
+                $stagingTransactionId = isset($opts['staging_transaction_id'])
+                    ? (int)$opts['staging_transaction_id']
+                    : (isset($data['staging_transaction_id']) ? (int)$data['staging_transaction_id'] : null);
+                if (!$this->authorizeAction('create', 'staging_payment')) {
+                    $data['error'] = 'Unauthorized: insufficient permissions to stage payments';
+                    $data['success'] = false;
+                    return null;
+                }
+                try {
+                    $result = $service->stageOrUpdatePayment($paymentData, $source, $stagingTransactionId);
+                    $data['result'] = $result->toArray();
+                    $data['success'] = true;
+                } catch (\Exception $e) {
+                    $data['error'] = $e->getMessage();
+                    $data['success'] = false;
+                }
+                return $data['result'] ?? null;
             case 'getStagedCustomers':
                 $filters = $opts['filters'] ?? $data['filters'] ?? [];
                 $data['result'] = array_map(fn($c) => $c->toArray(), $service->getStagedCustomers($filters));

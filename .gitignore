@@ -8,3 +8,6 @@ phpunit.phar
 /ksf_FA_Customer/
 /ksf_FA_Payment/
 /ksf_FA_RBAC/
+001-*.md
+002-*.md
+CustomerMatching_*.md

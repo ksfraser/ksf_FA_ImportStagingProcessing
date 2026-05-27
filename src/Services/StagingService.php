@@ -233,6 +233,34 @@ class StagingService implements StagingManagerInterface
         return $payment;
     }
 
+    public function stageOrUpdatePayment(array $data, string $source, ?int $stagingTransactionId = null): StagingPayment
+    {
+        $this->validateSource($source);
+        $payment = StagingPayment::fromArray(array_merge($data, ['source' => $source]));
+        if ($stagingTransactionId !== null) {
+            $payment->setStagingTransactionId($stagingTransactionId);
+        }
+        if ($payment->getNetAmount() === 0.0 && $payment->getAmount() > 0) {
+            $payment->setNetAmount($payment->getAmount() - $payment->getFee());
+        }
+        $validation = $this->paymentValidator->validate($payment->toArray());
+        if (!$validation->isSuccess()) {
+            throw \Ksfraser\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
+        }
+        if ($payment->getSourcePaymentId()) {
+            $existing = $this->paymentDAO->findBySource($source, $payment->getSourcePaymentId());
+            if ($existing) {
+                $payment->setId($existing->getId());
+                $this->paymentDAO->updateBySource($payment);
+                $this->logDAO->log('payment', $existing->getId(), 'updated', $source);
+                return $payment;
+            }
+        }
+        $id = $this->paymentDAO->insert($payment);
+        $this->logDAO->log('payment', $id, 'staged', $source);
+        return $payment;
+    }
+
     public function getStagedPayments(array $filters = []): array
     {
         $status = $filters['status'] ?? 'staged';

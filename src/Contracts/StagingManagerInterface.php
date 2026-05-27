@@ -5,6 +5,7 @@ namespace Ksfraser\ImportStaging\Contracts;
 
 use Ksfraser\ImportStaging\Models\StagingCustomer;
 use Ksfraser\ImportStaging\Models\StagingTransaction;
+use Ksfraser\ImportStaging\Models\StagingPayment;
 use Ksfraser\ImportStaging\Models\StagingLineItem;
 
 interface StagingManagerInterface
@@ -68,6 +69,13 @@ interface StagingManagerInterface
      * @return StagingLineItem[]
      */
     public function getLineItemsByTransaction(int $stagingTransactionId): array;
+
+    public function stagePayment(array $data, string $source, ?int $stagingTransactionId = null): StagingPayment;
+
+    /**
+     * Upsert a payment by source + source_payment_id.
+     */
+    public function stageOrUpdatePayment(array $data, string $source, ?int $stagingTransactionId = null): StagingPayment;
 
     /**
      * Get line items by source (and optional source_id).
