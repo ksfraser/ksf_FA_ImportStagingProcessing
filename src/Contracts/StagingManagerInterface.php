@@ -10,7 +10,11 @@ interface StagingManagerInterface
 {
     public function stageCustomer(array $data, string $source): StagingCustomer;
 
+    public function stageOrUpdateCustomer(array $data, string $source): StagingCustomer;
+
     public function stageTransaction(array $data, string $source): StagingTransaction;
+
+    public function stageOrUpdateTransaction(array $data, string $source): StagingTransaction;
 
     public function getStagedCustomers(array $filters = []): array;
 

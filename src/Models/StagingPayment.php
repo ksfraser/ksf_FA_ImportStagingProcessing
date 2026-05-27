@@ -27,6 +27,7 @@ class StagingPayment
     private ?int $faTransNo;
     private ?string $faBankAccount;
     private ?string $errorLog;
+    private ?\DateTimeInterface $sourceUpdatedAt;
     private ?\DateTimeInterface $createdAt;
     private ?\DateTimeInterface $updatedAt;
 
@@ -51,6 +52,7 @@ class StagingPayment
         $this->faTransNo = null;
         $this->faBankAccount = null;
         $this->errorLog = null;
+        $this->sourceUpdatedAt = null;
         $this->createdAt = null;
         $this->updatedAt = null;
         $this->sourcePaymentId = null;
@@ -129,6 +131,9 @@ class StagingPayment
     public function getUpdatedAt(): ?\DateTimeInterface { return $this->updatedAt; }
     public function setUpdatedAt(?\DateTimeInterface $dt): void { $this->updatedAt = $dt; }
 
+    public function getSourceUpdatedAt(): ?\DateTimeInterface { return $this->sourceUpdatedAt; }
+    public function setSourceUpdatedAt(?\DateTimeInterface $dt): void { $this->sourceUpdatedAt = $dt; }
+
     public function toArray(): array
     {
         return [
@@ -154,6 +159,7 @@ class StagingPayment
             'fa_trans_no' => $this->faTransNo,
             'fa_bank_account' => $this->faBankAccount,
             'error_log' => $this->errorLog,
+            'source_updated_at' => $this->sourceUpdatedAt ? $this->sourceUpdatedAt->format('Y-m-d H:i:s') : null,
         ];
     }
 
@@ -181,6 +187,7 @@ class StagingPayment
         if (isset($data['fa_trans_no'])) $payment->setFaTransNo((int)$data['fa_trans_no']);
         if (isset($data['fa_bank_account'])) $payment->setFaBankAccount($data['fa_bank_account']);
         if (isset($data['error_log'])) $payment->setErrorLog($data['error_log']);
+        if (isset($data['source_updated_at'])) $payment->setSourceUpdatedAt(new \DateTimeImmutable($data['source_updated_at']));
         return $payment;
     }
 }

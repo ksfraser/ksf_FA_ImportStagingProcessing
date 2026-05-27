@@ -8,9 +8,12 @@ use Ksfraser\ImportStaging\Services\StagingService;
 use Ksfraser\ImportStaging\Services\MatchingService;
 use Ksfraser\ImportStaging\DAO\StagingCustomerDAO;
 use Ksfraser\ImportStaging\DAO\StagingTransactionDAO;
+use Ksfraser\ImportStaging\DAO\StagingPaymentDAO;
+use Ksfraser\ImportStaging\DAO\StagingPaymentMatchDAO;
 use Ksfraser\ImportStaging\DAO\StagingLogDAO;
 use Ksfraser\ImportStaging\Validators\TransactionValidator;
 use Ksfraser\ImportStaging\Validators\CustomerValidator;
+use Ksfraser\ImportStaging\Validators\PaymentValidator;
 use Ksfraser\ImportStaging\Exceptions\DuplicateTransactionException;
 use Ksfraser\ImportStaging\Exceptions\InvalidSourceException;
 
@@ -24,15 +27,24 @@ class StagingServiceTest extends TestCase
     {
         $tablePrefix = '0_test_';
         $db = $this->createMock(\ksf_ModulesDAO::class);
+        $stmt = $this->getMockBuilder(\stdClass::class)
+            ->addMethods(['fetchAll'])
+            ->getMock();
+        $stmt->method('fetchAll')->willReturn([]);
+        $db->method('query')->willReturn($stmt);
         $this->transactionDAO = new StagingTransactionDAO($tablePrefix, $db);
         $customerDAO = new StagingCustomerDAO($tablePrefix, $db);
+        $paymentDAO = new StagingPaymentDAO($tablePrefix, $db);
+        $paymentMatchDAO = new StagingPaymentMatchDAO($tablePrefix, $db);
         $this->logDAO = new StagingLogDAO($tablePrefix, $db);
         $txnValidator = new TransactionValidator();
         $custValidator = new CustomerValidator();
+        $paymentValidator = new PaymentValidator();
         $matchingService = new MatchingService();
         $this->service = new StagingService(
-            $customerDAO, $this->transactionDAO, $this->logDAO,
-            $txnValidator, $custValidator, $matchingService
+            $customerDAO, $this->transactionDAO, $paymentDAO, $paymentMatchDAO,
+            $this->logDAO, $txnValidator, $custValidator, $paymentValidator,
+            $matchingService
         );
     }
 

@@ -37,6 +37,7 @@ class StagingCustomerDAO
             status VARCHAR(16) NOT NULL DEFAULT 'staged',
             fa_debtor_no INT(11) DEFAULT NULL,
             error_log TEXT DEFAULT NULL,
+            source_updated_at DATETIME DEFAULT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
@@ -52,8 +53,8 @@ class StagingCustomerDAO
     {
         $this->ensureTableExists();
         $sql = "INSERT INTO {$this->tableName} 
-            (source, source_customer_id, name, email, phone, address_line1, address_line2, city, province, postal_code, country, raw_json, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            (source, source_customer_id, name, email, phone, address_line1, address_line2, city, province, postal_code, country, raw_json, status, source_updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $this->db->query($sql, [
             $customer->getSource(),
             $customer->getSourceCustomerId(),
@@ -68,6 +69,7 @@ class StagingCustomerDAO
             $customer->getCountry(),
             $customer->getRawJson(),
             $customer->getStatus(),
+            $customer->getSourceUpdatedAt() ? $customer->getSourceUpdatedAt()->format('Y-m-d H:i:s') : null,
         ]);
         $id = (int)$this->db->insertId();
         $customer->setId($id);
@@ -109,6 +111,34 @@ class StagingCustomerDAO
             $sql = "UPDATE {$this->tableName} SET status = ? WHERE id = ?";
             $this->db->query($sql, [$status, $id]);
         }
+    }
+
+    public function updateBySource(StagingCustomer $customer): bool
+    {
+        $sql = "UPDATE {$this->tableName} SET
+            name = ?, email = ?, phone = ?, address_line1 = ?, address_line2 = ?,
+            city = ?, province = ?, postal_code = ?, country = ?, raw_json = ?,
+            status = ?, fa_debtor_no = ?, error_log = ?, source_updated_at = ?
+            WHERE source = ? AND source_customer_id = ?";
+        $this->db->query($sql, [
+            $customer->getName(),
+            $customer->getEmail(),
+            $customer->getPhone(),
+            $customer->getAddressLine1(),
+            $customer->getAddressLine2(),
+            $customer->getCity(),
+            $customer->getProvince(),
+            $customer->getPostalCode(),
+            $customer->getCountry(),
+            $customer->getRawJson(),
+            $customer->getStatus(),
+            $customer->getFaDebtorNo(),
+            $customer->getErrorLog(),
+            $customer->getSourceUpdatedAt() ? $customer->getSourceUpdatedAt()->format('Y-m-d H:i:s') : null,
+            $customer->getSource(),
+            $customer->getSourceCustomerId(),
+        ]);
+        return $this->db->affectedRows() > 0;
     }
 
     public function findByEmail(string $email): array

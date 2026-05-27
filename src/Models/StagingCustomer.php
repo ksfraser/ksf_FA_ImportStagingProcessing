@@ -21,6 +21,7 @@ class StagingCustomer
     private string $status;
     private ?int $faDebtorNo;
     private ?string $errorLog;
+    private ?\DateTimeInterface $sourceUpdatedAt;
     private ?\DateTimeInterface $createdAt;
     private ?\DateTimeInterface $updatedAt;
 
@@ -42,6 +43,7 @@ class StagingCustomer
         $this->rawJson = null;
         $this->faDebtorNo = null;
         $this->errorLog = null;
+        $this->sourceUpdatedAt = null;
         $this->createdAt = null;
         $this->updatedAt = null;
     }
@@ -99,6 +101,9 @@ class StagingCustomer
     public function getUpdatedAt(): ?\DateTimeInterface { return $this->updatedAt; }
     public function setUpdatedAt(?\DateTimeInterface $dt): void { $this->updatedAt = $dt; }
 
+    public function getSourceUpdatedAt(): ?\DateTimeInterface { return $this->sourceUpdatedAt; }
+    public function setSourceUpdatedAt(?\DateTimeInterface $dt): void { $this->sourceUpdatedAt = $dt; }
+
     public function toArray(): array
     {
         return [
@@ -118,6 +123,7 @@ class StagingCustomer
             'status' => $this->status,
             'fa_debtor_no' => $this->faDebtorNo,
             'error_log' => $this->errorLog,
+            'source_updated_at' => $this->sourceUpdatedAt ? $this->sourceUpdatedAt->format('Y-m-d H:i:s') : null,
         ];
     }
 
@@ -139,6 +145,7 @@ class StagingCustomer
         if (isset($data['status'])) $customer->setStatus($data['status']);
         if (isset($data['fa_debtor_no'])) $customer->setFaDebtorNo((int)$data['fa_debtor_no']);
         if (isset($data['error_log'])) $customer->setErrorLog($data['error_log']);
+        if (isset($data['source_updated_at'])) $customer->setSourceUpdatedAt(new \DateTimeImmutable($data['source_updated_at']));
         return $customer;
     }
 }

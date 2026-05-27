@@ -43,6 +43,7 @@ class StagingPaymentDAO
             fa_trans_no INT(11) DEFAULT NULL,
             fa_bank_account VARCHAR(32) DEFAULT NULL,
             error_log TEXT DEFAULT NULL,
+            source_updated_at DATETIME DEFAULT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
@@ -65,8 +66,8 @@ class StagingPaymentDAO
             (source, source_payment_id, source_transaction_id, staging_transaction_id,
              amount, currency, fee, net_amount,
              payment_method, payment_date, reference,
-             card_brand, pan_suffix, card_entry_method, raw_json, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+             card_brand, pan_suffix, card_entry_method, raw_json, status, source_updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $this->db->query($sql, [
             $payment->getSource(),
             $payment->getSourcePaymentId(),
@@ -84,6 +85,7 @@ class StagingPaymentDAO
             $payment->getCardEntryMethod(),
             $payment->getRawJson(),
             $payment->getStatus(),
+            $payment->getSourceUpdatedAt() ? $payment->getSourceUpdatedAt()->format('Y-m-d H:i:s') : null,
         ]);
         $id = (int)$this->db->insertId();
         $payment->setId($id);
@@ -177,6 +179,43 @@ class StagingPaymentDAO
             $result[$row['status']] = (int)$row['count'];
         }
         return $result;
+    }
+
+    public function updateBySource(StagingPayment $payment): bool
+    {
+        $sql = "UPDATE {$this->tableName} SET
+            source_transaction_id = ?, staging_transaction_id = ?,
+            amount = ?, currency = ?, fee = ?, net_amount = ?,
+            payment_method = ?, payment_date = ?, reference = ?,
+            card_brand = ?, pan_suffix = ?, card_entry_method = ?, raw_json = ?,
+            status = ?, match_confidence = ?, fa_trans_type = ?, fa_trans_no = ?,
+            fa_bank_account = ?, error_log = ?, source_updated_at = ?
+            WHERE source = ? AND source_payment_id = ?";
+        $this->db->query($sql, [
+            $payment->getSourceTransactionId(),
+            $payment->getStagingTransactionId(),
+            $payment->getAmount(),
+            $payment->getCurrency(),
+            $payment->getFee(),
+            $payment->getNetAmount(),
+            $payment->getPaymentMethod(),
+            $payment->getPaymentDate() ? $payment->getPaymentDate()->format('Y-m-d') : null,
+            $payment->getReference(),
+            $payment->getCardBrand(),
+            $payment->getPanSuffix(),
+            $payment->getCardEntryMethod(),
+            $payment->getRawJson(),
+            $payment->getStatus(),
+            $payment->getMatchConfidence(),
+            $payment->getFaTransType(),
+            $payment->getFaTransNo(),
+            $payment->getFaBankAccount(),
+            $payment->getErrorLog(),
+            $payment->getSourceUpdatedAt() ? $payment->getSourceUpdatedAt()->format('Y-m-d H:i:s') : null,
+            $payment->getSource(),
+            $payment->getSourcePaymentId(),
+        ]);
+        return $this->db->affectedRows() > 0;
     }
 
     public function getQueueForReconciliation(?string $source = null, int $limit = 100): array

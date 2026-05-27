@@ -32,7 +32,7 @@ class HooksTest extends TestCase
         $this->assertArrayHasKey('matching', $result);
         $this->assertArrayHasKey('mapping', $result);
         $this->assertArrayHasKey('audit', $result);
-        $this->assertEquals('Stage customers and transactions from any source', $result['staging']['description']);
+        $this->assertEquals('Stage customers, transactions, and payments from any source', $result['staging']['description']);
     }
 
     public function testHasCapabilityStaging(): void

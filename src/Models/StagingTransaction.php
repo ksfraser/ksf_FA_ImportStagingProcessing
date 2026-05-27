@@ -26,6 +26,7 @@ class StagingTransaction
     private ?int $faInvoiceNo;
     private ?int $faDebtorNo;
     private ?string $errorLog;
+    private ?\DateTimeInterface $sourceUpdatedAt;
     private ?\DateTimeInterface $createdAt;
     private ?\DateTimeInterface $updatedAt;
 
@@ -52,6 +53,7 @@ class StagingTransaction
         $this->faInvoiceNo = null;
         $this->faDebtorNo = null;
         $this->errorLog = null;
+        $this->sourceUpdatedAt = null;
         $this->createdAt = null;
         $this->updatedAt = null;
     }
@@ -124,6 +126,9 @@ class StagingTransaction
     public function getUpdatedAt(): ?\DateTimeInterface { return $this->updatedAt; }
     public function setUpdatedAt(?\DateTimeInterface $dt): void { $this->updatedAt = $dt; }
 
+    public function getSourceUpdatedAt(): ?\DateTimeInterface { return $this->sourceUpdatedAt; }
+    public function setSourceUpdatedAt(?\DateTimeInterface $dt): void { $this->sourceUpdatedAt = $dt; }
+
     public function toArray(): array
     {
         return [
@@ -148,6 +153,7 @@ class StagingTransaction
             'fa_invoice_no' => $this->faInvoiceNo,
             'fa_debtor_no' => $this->faDebtorNo,
             'error_log' => $this->errorLog,
+            'source_updated_at' => $this->sourceUpdatedAt ? $this->sourceUpdatedAt->format('Y-m-d H:i:s') : null,
         ];
     }
 
@@ -174,6 +180,7 @@ class StagingTransaction
         if (isset($data['fa_invoice_no'])) $txn->setFaInvoiceNo((int)$data['fa_invoice_no']);
         if (isset($data['fa_debtor_no'])) $txn->setFaDebtorNo((int)$data['fa_debtor_no']);
         if (isset($data['error_log'])) $txn->setErrorLog($data['error_log']);
+        if (isset($data['source_updated_at'])) $txn->setSourceUpdatedAt(new \DateTimeImmutable($data['source_updated_at']));
         return $txn;
     }
 }

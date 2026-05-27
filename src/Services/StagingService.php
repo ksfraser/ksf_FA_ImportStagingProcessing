@@ -71,6 +71,28 @@ class StagingService implements StagingManagerInterface
         return $customer;
     }
 
+    public function stageOrUpdateCustomer(array $data, string $source): StagingCustomer
+    {
+        $this->validateSource($source);
+        $customer = StagingCustomer::fromArray(array_merge($data, ['source' => $source]));
+        $validation = $this->customerValidator->validate($customer->toArray());
+        if (!$validation->isSuccess()) {
+            throw \Ksfraser\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
+        }
+        if ($customer->getSourceCustomerId()) {
+            $existing = $this->customerDAO->findBySource($source, $customer->getSourceCustomerId());
+            if ($existing) {
+                $customer->setId($existing->getId());
+                $this->customerDAO->updateBySource($customer);
+                $this->logDAO->log('customer', $existing->getId(), 'updated', $source);
+                return $customer;
+            }
+        }
+        $id = $this->customerDAO->insert($customer);
+        $this->logDAO->log('customer', $id, 'staged', $source);
+        return $customer;
+    }
+
     public function stageTransaction(array $data, string $source): StagingTransaction
     {
         $this->validateSource($source);
@@ -84,6 +106,28 @@ class StagingService implements StagingManagerInterface
         $validation = $this->transactionValidator->validate($transaction->toArray());
         if (!$validation->isSuccess()) {
             throw \Ksfraser\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
+        }
+        $id = $this->transactionDAO->insert($transaction);
+        $this->logDAO->log('transaction', $id, 'staged', $source);
+        return $transaction;
+    }
+
+    public function stageOrUpdateTransaction(array $data, string $source): StagingTransaction
+    {
+        $this->validateSource($source);
+        $transaction = StagingTransaction::fromArray(array_merge($data, ['source' => $source]));
+        $validation = $this->transactionValidator->validate($transaction->toArray());
+        if (!$validation->isSuccess()) {
+            throw \Ksfraser\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
+        }
+        if ($transaction->getSourceTransactionId()) {
+            $existing = $this->transactionDAO->findBySource($source, $transaction->getSourceTransactionId());
+            if ($existing) {
+                $transaction->setId($existing->getId());
+                $this->transactionDAO->updateBySource($transaction);
+                $this->logDAO->log('transaction', $existing->getId(), 'updated', $source);
+                return $transaction;
+            }
         }
         $id = $this->transactionDAO->insert($transaction);
         $this->logDAO->log('transaction', $id, 'staged', $source);
@@ -121,7 +165,8 @@ class StagingService implements StagingManagerInterface
         $errors = [];
         foreach ($records as $record) {
             try {
-                $matchResult = $this->matchingService->matchCandidates($record->toArray(), []);
+                $existingRecords = $this->findExistingMatchRecords($record);
+                $matchResult = $this->matchingService->matchCandidates($record->toArray(), $existingRecords);
                 $confidence = $matchResult['confidence'] ?? 0.0;
                 if ($this->matchingService->autoApprove($confidence)) {
                     $this->transactionDAO->updateStatus($record->getId(), 'matched', $confidence);
@@ -301,6 +346,95 @@ class StagingService implements StagingManagerInterface
     public function getPaymentStatusCounts(?string $source = null): array
     {
         return $this->paymentDAO->countByStatus($source);
+    }
+
+    /**
+     * Search the new FA modules (ksf_FA_Customer, ksf_FA_Payment) for existing
+     * records that could match the given staged record. Uses hook_invoke_first
+     * to communicate with the sub-modules.
+     *
+     * Falls back gracefully (empty array) when hooks or modules are unavailable.
+     */
+    private function findExistingMatchRecords($stagedRecord): array
+    {
+        $existing = [];
+
+        $customerName = $stagedRecord instanceof StagingTransaction
+            ? $stagedRecord->getCustomerName()
+            : ($stagedRecord['customer_name'] ?? null);
+        $customerEmail = $stagedRecord instanceof StagingTransaction
+            ? $stagedRecord->getCustomerEmail()
+            : ($stagedRecord['customer_email'] ?? null);
+        $reference = $stagedRecord instanceof StagingTransaction
+            ? $stagedRecord->getSourceTransactionId()
+            : ($stagedRecord['source_transaction_id'] ?? null);
+
+        if (!function_exists('hook_invoke_first')) {
+            return $existing;
+        }
+
+        if ($customerEmail) {
+            $searchData = ['query' => $customerEmail];
+            $faCustomers = hook_invoke_first('SEARCH_CUSTOMER', $searchData);
+            if (is_array($faCustomers)) {
+                foreach ($faCustomers as $faCust) {
+                    $existing[] = [
+                        'customer_name' => $faCust['name'] ?? '',
+                        'customer_email' => $faCust['email'] ?? '',
+                        'total_amount' => 0.0,
+                        'transaction_date' => null,
+                        'source_transaction_id' => $faCust['reference'] ?? '',
+                        '_fa_type' => 'customer',
+                        '_fa_debtor_no' => $faCust['fa_debtor_no'] ?? $faCust['debtor_no'] ?? 0,
+                    ];
+                }
+            }
+        }
+
+        if ($customerName) {
+            $searchData = ['query' => $customerName];
+            $faCustomers = hook_invoke_first('SEARCH_CUSTOMER', $searchData);
+            if (is_array($faCustomers)) {
+                foreach ($faCustomers as $faCust) {
+                    $alreadyAdded = false;
+                    foreach ($existing as $e) {
+                        if (($e['_fa_debtor_no'] ?? 0) === ($faCust['fa_debtor_no'] ?? $faCust['debtor_no'] ?? 0)) {
+                            $alreadyAdded = true;
+                            break;
+                        }
+                    }
+                    if (!$alreadyAdded) {
+                        $existing[] = [
+                            'customer_name' => $faCust['name'] ?? '',
+                            'customer_email' => $faCust['email'] ?? '',
+                            'total_amount' => 0.0,
+                            'transaction_date' => null,
+                            'source_transaction_id' => $faCust['reference'] ?? '',
+                            '_fa_type' => 'customer',
+                            '_fa_debtor_no' => $faCust['fa_debtor_no'] ?? $faCust['debtor_no'] ?? 0,
+                        ];
+                    }
+                }
+            }
+        }
+
+        if ($reference) {
+            $paymentData = ['reference' => $reference];
+            $faPayment = hook_invoke_first('GET_PAYMENT', $paymentData);
+            if (is_array($faPayment) && !isset($faPayment['error'])) {
+                $existing[] = [
+                    'customer_name' => '',
+                    'customer_email' => '',
+                    'total_amount' => $faPayment['amount'] ?? 0.0,
+                    'transaction_date' => $faPayment['payment_date'] ?? null,
+                    'source_transaction_id' => $faPayment['reference'] ?? $reference,
+                    '_fa_type' => 'payment',
+                    '_fa_payment_no' => $faPayment['fa_payment_no'] ?? 0,
+                ];
+            }
+        }
+
+        return $existing;
     }
 
     private function validateSource(string $source): void

@@ -13,6 +13,10 @@
     "prefer-stable": true,
     "repositories": [
         {
+            "type": "path",
+            "url": "vendor/ksfraser/famock"
+        },
+        {
             "type": "vcs",
             "url": "https://github.com/ksfraser/Traits.git"
         }

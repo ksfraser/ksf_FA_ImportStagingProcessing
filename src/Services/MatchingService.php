@@ -10,6 +10,14 @@ class MatchingService implements MatchingServiceInterface
     private float $autoApproveThreshold;
     private float $reviewThreshold;
 
+    private const CUSTOMER_MATCH_THRESHOLD = 50.0;
+
+    private const CUSTOMER_SCORE_EMAIL = 30.0;
+    private const CUSTOMER_SCORE_PHONE = 25.0;
+    private const CUSTOMER_SCORE_NAME = 20.0;
+    private const CUSTOMER_SCORE_CONTACT_NAME = 20.0;
+    private const CUSTOMER_SCORE_ADDRESS = 15.0;
+
     public function __construct(float $autoApproveThreshold = 0.95, float $reviewThreshold = 0.80)
     {
         $this->autoApproveThreshold = $autoApproveThreshold;
@@ -120,22 +128,93 @@ class MatchingService implements MatchingServiceInterface
         }
     }
 
-    public function matchByCustomer(array $custA, array $custB): float
+    public function matchByCustomer(array $staged, array $existingRecords): array
     {
-        $scores = [];
-        if (isset($custA['email'], $custB['email'])) {
-            $scores[] = $this->exactMatch($custA['email'], $custB['email']);
+        $candidates = [];
+        foreach ($existingRecords as $record) {
+            $score = $this->calculateCustomerMatchScore($staged, $record);
+            $candidates[] = [
+                'debtor_no'  => $record['debtor_no'] ?? null,
+                'branch_ref' => $record['branch_ref'] ?? null,
+                'name'       => $record['name'] ?? null,
+                'company'    => $record['company'] ?? $record['name'] ?? null,
+                'email'      => $record['email'] ?? null,
+                'phone'      => $record['phone'] ?? null,
+                'score'      => $score,
+            ];
         }
-        if (isset($custA['name'], $custB['name'])) {
-            $scores[] = $this->matchName($custA['name'], $custB['name']);
+        usort($candidates, fn($a, $b) => $b['score'] <=> $a['score']);
+        return $candidates;
+    }
+
+    public function calculateCustomerMatchScore(array $staged, array $existing): float
+    {
+        $score = 0.0;
+
+        if (!empty($staged['email']) && !empty($existing['email'])) {
+            if (strcasecmp(trim($staged['email']), trim($existing['email'])) === 0) {
+                $score += self::CUSTOMER_SCORE_EMAIL;
+            }
         }
-        if (isset($custA['phone'], $custB['phone'])) {
-            $scores[] = $this->matchPhone($custA['phone'], $custB['phone']);
+
+        if (!empty($staged['email']) && !empty($existing['branch_email'])) {
+            if (strcasecmp(trim($staged['email']), trim($existing['branch_email'])) === 0) {
+                $score += self::CUSTOMER_SCORE_EMAIL;
+            }
         }
-        if (empty($scores)) {
-            return 0.0;
+
+        if (!empty($staged['phone']) && !empty($existing['phone'])) {
+            $cleanStaged = preg_replace('/[^0-9]/', '', $staged['phone']);
+            $cleanExisting = preg_replace('/[^0-9]/', '', $existing['phone']);
+            if ($cleanStaged !== '' && $cleanStaged === $cleanExisting) {
+                $score += self::CUSTOMER_SCORE_PHONE;
+            }
         }
-        return array_sum($scores) / count($scores);
+
+        if (!empty($staged['company']) && !empty($existing['name'])) {
+            if ($this->fuzzyMatch($staged['company'], $existing['name'])) {
+                $score += self::CUSTOMER_SCORE_NAME;
+            }
+        }
+
+        $stagedContact = trim(($staged['first_name'] ?? '') . ' ' . ($staged['last_name'] ?? ''));
+        if ($stagedContact !== '' && !empty($existing['contact_name'])) {
+            if ($this->fuzzyMatch($stagedContact, $existing['contact_name'])) {
+                $score += self::CUSTOMER_SCORE_CONTACT_NAME;
+            }
+        }
+
+        if (!empty($staged['address1']) && !empty($existing['br_address'])) {
+            if ($this->addressMatch($staged['address1'], $existing['br_address'])) {
+                $score += self::CUSTOMER_SCORE_ADDRESS;
+            }
+        }
+
+        return min(100.0, $score);
+    }
+
+    public function fuzzyMatch(string $a, string $b): bool
+    {
+        $a = strtolower(trim(preg_replace('/\s+/', ' ', $a)));
+        $b = strtolower(trim(preg_replace('/\s+/', ' ', $b)));
+
+        if ($a === $b) {
+            return true;
+        }
+        if (strpos($a, $b) !== false || strpos($b, $a) !== false) {
+            return true;
+        }
+
+        $dist = levenshtein($a, $b);
+        $len = max(strlen($a), strlen($b));
+        return $len > 0 && ($dist / $len) < 0.2;
+    }
+
+    public function addressMatch(string $addrA, string $addrB): bool
+    {
+        $normA = strtolower(trim(preg_replace('/\s+/', ' ', $addrA)));
+        $normB = strtolower(trim(preg_replace('/\s+/', ' ', $addrB)));
+        return strpos($normA, $normB) !== false || strpos($normB, $normA) !== false;
     }
 
     public function matchName(string $nameA, string $nameB): float

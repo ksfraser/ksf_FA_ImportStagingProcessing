@@ -29,6 +29,7 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
             'staging' => [
                 'description' => 'Stage customers, transactions, and payments from any source',
                 'methods' => ['stageCustomer', 'stageTransaction', 'stagePayment', 'getStagedCustomers', 'getStagedTransactions', 'getStagedPayments', 'updateStatus'],
+                'events' => ['STAGE_CUSTOMER', 'STAGE_TRANSACTION', 'STAGE_PAYMENT'],
             ],
             'matching' => [
                 'description' => 'Match and process staged transactions',
@@ -41,6 +42,10 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
             'mapping' => [
                 'description' => 'Manage field mapping configuration',
                 'methods' => ['getMappings', 'saveMapping', 'getMapping'],
+            ],
+            'processing' => [
+                'description' => 'Process staged records into FA via PROCESS_STAGING event (creates customers, processes payments)',
+                'methods' => ['processStaging', 'processCustomer', 'processPayment', 'getProcessedIds'],
             ],
             'audit' => [
                 'description' => 'Access processing audit trail',
@@ -59,7 +64,7 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
             $data['error'] = 'No capability specified';
             return false;
         }
-        $capabilities = ['staging', 'matching', 'mapping', 'audit', 'reconciliation'];
+        $capabilities = ['staging', 'matching', 'mapping', 'audit', 'reconciliation', 'processing'];
         $hasCapability = in_array($capability, $capabilities);
         $data['has_capability'] = $hasCapability;
         $data['capability_checked'] = $capability;
@@ -87,6 +92,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         if (strpos($request, 'reconciliation:') === 0) {
             return $this->handleReconciliationRequest(substr($request, 15), $data, $opts);
         }
+        if (strpos($request, 'processing:') === 0) {
+            return $this->handleProcessingRequest(substr($request, 11), $data, $opts);
+        }
 
         switch ($request) {
             case 'capabilities':
@@ -109,6 +117,11 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
             case 'stageCustomer':
                 $source = $opts['source'] ?? $data['source'] ?? '';
                 $customerData = $opts['customer'] ?? $data['customer'] ?? [];
+                if (!$this->authorizeAction('create', 'staging_customer')) {
+                    $data['error'] = 'Unauthorized: insufficient permissions to stage customers';
+                    $data['success'] = false;
+                    return null;
+                }
                 try {
                     $result = $service->stageCustomer($customerData, $source);
                     $data['result'] = $result->toArray();
@@ -121,6 +134,11 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
             case 'stageTransaction':
                 $source = $opts['source'] ?? $data['source'] ?? '';
                 $txnData = $opts['transaction'] ?? $data['transaction'] ?? [];
+                if (!$this->authorizeAction('create', 'staging_transaction')) {
+                    $data['error'] = 'Unauthorized: insufficient permissions to stage transactions';
+                    $data['success'] = false;
+                    return null;
+                }
                 try {
                     $result = $service->stageTransaction($txnData, $source);
                     $data['result'] = $result->toArray();
@@ -136,6 +154,11 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
                 $stagingTransactionId = isset($opts['staging_transaction_id'])
                     ? (int)$opts['staging_transaction_id']
                     : (isset($data['staging_transaction_id']) ? (int)$data['staging_transaction_id'] : null);
+                if (!$this->authorizeAction('create', 'staging_payment')) {
+                    $data['error'] = 'Unauthorized: insufficient permissions to stage payments';
+                    $data['success'] = false;
+                    return null;
+                }
                 try {
                     $result = $service->stagePayment($paymentData, $source, $stagingTransactionId);
                     $data['result'] = $result->toArray();
@@ -242,6 +265,204 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
+    /**
+     * PROCESS_STAGING — Event handler invoked via hook_invoke_first()
+     *
+     * Processes all staged customers, transactions, and payments into FA.
+     * Delegates to ksf_FA_Customer and ksf_FA_Payment modules via
+     * CREATE_CUSTOMER and CREATE_PAYMENT events.
+     *
+     * Called by:
+     *   $data = ['source' => 'woocommerce'];  // optional filter
+     *   $result = hook_invoke_first('PROCESS_STAGING', $data);
+     *
+     * @param array &$data Optional source filter
+     * @param array|null $opts Options
+     * @return array Result summary
+     */
+    public function PROCESS_STAGING(&$data, $opts = null)
+    {
+        if (!$this->authorizeAction('create', 'staging_record')) {
+            $data['error'] = 'Unauthorized: insufficient permissions to process staging records';
+            $data['success'] = false;
+            return null;
+        }
+
+        try {
+            $pipeline = $this->getProcessingPipeline();
+            $source = $opts['source'] ?? $data['source'] ?? null;
+            $result = $pipeline->processAll($source);
+            $data['result'] = [
+                'success' => $result->isSuccess(),
+                'record_id' => $result->getRecordId(),
+                'action' => $result->getAction(),
+                'errors' => $result->getErrors(),
+                'processed_ids' => $pipeline->getProcessedIds(),
+            ];
+            $data['success'] = $result->isSuccess();
+            return $data['result'];
+        } catch (\Exception $e) {
+            error_log('ksf_FA_ImportStagingProcessing: PROCESS_STAGING failed: ' . $e->getMessage());
+            $data['error'] = $e->getMessage();
+            $data['success'] = false;
+            return null;
+        }
+    }
+
+    /**
+     * STAGE_CUSTOMER — Event handler invoked via hook_invoke_first()
+     *
+     * Stages a customer record into the staging table for later processing.
+     *
+     * Called by:
+     *   $data = ['source' => 'woocommerce', 'customer' => ['name' => '...', 'email' => '...']];
+     *   $result = hook_invoke_first('STAGE_CUSTOMER', $data);
+     *
+     * @param array &$data Must contain 'source' and 'customer' keys
+     * @param array|null $opts Options
+     * @return array|null Serialized StagingCustomer or null on failure
+     */
+    public function STAGE_CUSTOMER(&$data, $opts = null)
+    {
+        $source = $opts['source'] ?? $data['source'] ?? '';
+        $customerData = $opts['customer'] ?? $data['customer'] ?? [];
+
+        if (!$this->authorizeAction('create', 'staging_customer')) {
+            $data['error'] = 'Unauthorized';
+            $data['success'] = false;
+            return null;
+        }
+
+        try {
+            $service = $this->getStagingService();
+            $result = $service->stageCustomer($customerData, $source);
+            $arr = $result->toArray();
+            $arr['_event'] = 'CUSTOMER_STAGED';
+            $arr['_module'] = $this->module_name;
+            $data['result'] = $arr;
+            $data['success'] = true;
+            return $arr;
+        } catch (\Exception $e) {
+            error_log('STAGE_CUSTOMER failed: ' . $e->getMessage());
+            $data['error'] = $e->getMessage();
+            $data['success'] = false;
+            return null;
+        }
+    }
+
+    /**
+     * STAGE_TRANSACTION — Event handler invoked via hook_invoke_first()
+     *
+     * Stages a transaction record into the staging table for later processing.
+     *
+     * Called by:
+     *   $data = ['source' => 'square_api', 'transaction' => ['total_amount' => 100.00, ...]];
+     *   $result = hook_invoke_first('STAGE_TRANSACTION', $data);
+     *
+     * @param array &$data Must contain 'source' and 'transaction' keys
+     * @param array|null $opts Options
+     * @return array|null Serialized StagingTransaction or null on failure
+     */
+    public function STAGE_TRANSACTION(&$data, $opts = null)
+    {
+        $source = $opts['source'] ?? $data['source'] ?? '';
+        $txnData = $opts['transaction'] ?? $data['transaction'] ?? [];
+
+        if (!$this->authorizeAction('create', 'staging_transaction')) {
+            $data['error'] = 'Unauthorized';
+            $data['success'] = false;
+            return null;
+        }
+
+        try {
+            $service = $this->getStagingService();
+            $result = $service->stageTransaction($txnData, $source);
+            $arr = $result->toArray();
+            $arr['_event'] = 'TRANSACTION_STAGED';
+            $arr['_module'] = $this->module_name;
+            $data['result'] = $arr;
+            $data['success'] = true;
+            return $arr;
+        } catch (\Exception $e) {
+            error_log('STAGE_TRANSACTION failed: ' . $e->getMessage());
+            $data['error'] = $e->getMessage();
+            $data['success'] = false;
+            return null;
+        }
+    }
+
+    /**
+     * STAGE_PAYMENT — Event handler invoked via hook_invoke_first()
+     *
+     * Stages a payment record into the staging table for later reconciliation
+     * and processing.
+     *
+     * Called by:
+     *   $data = ['source' => 'paypal', 'payment' => ['amount' => 50.00, ...]];
+     *   $result = hook_invoke_first('STAGE_PAYMENT', $data);
+     *
+     * @param array &$data Must contain 'source' and 'payment' keys
+     * @param array|null $opts Options
+     * @return array|null Serialized StagingPayment or null on failure
+     */
+    public function STAGE_PAYMENT(&$data, $opts = null)
+    {
+        $source = $opts['source'] ?? $data['source'] ?? '';
+        $paymentData = $opts['payment'] ?? $data['payment'] ?? [];
+        $stagingTransactionId = isset($opts['staging_transaction_id'])
+            ? (int) $opts['staging_transaction_id']
+            : (isset($data['staging_transaction_id']) ? (int) $data['staging_transaction_id'] : null);
+
+        if (!$this->authorizeAction('create', 'staging_payment')) {
+            $data['error'] = 'Unauthorized';
+            $data['success'] = false;
+            return null;
+        }
+
+        try {
+            $service = $this->getStagingService();
+            $result = $service->stagePayment($paymentData, $source, $stagingTransactionId);
+            $arr = $result->toArray();
+            $arr['_event'] = 'PAYMENT_STAGED';
+            $arr['_module'] = $this->module_name;
+            $data['result'] = $arr;
+            $data['success'] = true;
+            return $arr;
+        } catch (\Exception $e) {
+            error_log('STAGE_PAYMENT failed: ' . $e->getMessage());
+            $data['error'] = $e->getMessage();
+            $data['success'] = false;
+            return null;
+        }
+    }
+
+    private function handleProcessingRequest($action, &$data, $opts)
+    {
+        switch ($action) {
+            case 'processStaging':
+                return $this->PROCESS_STAGING($data, $opts);
+            case 'processAll':
+                $pipeline = $this->getProcessingPipeline();
+                $source = $opts['source'] ?? $data['source'] ?? null;
+                $result = $pipeline->processAll($source);
+                $data['result'] = [
+                    'success' => $result->isSuccess(),
+                    'record_id' => $result->getRecordId(),
+                    'action' => $result->getAction(),
+                    'errors' => $result->getErrors(),
+                    'processed_ids' => $pipeline->getProcessedIds(),
+                ];
+                $data['success'] = $result->isSuccess();
+                return $data['result'];
+            case 'getProcessedIds':
+                $data['result'] = [];
+                return $data['result'];
+            default:
+                $data['error'] = 'Unknown processing action: ' . $action;
+                return null;
+        }
+    }
+
     private function handleMappingRequest($action, &$data, $opts)
     {
         $data['error'] = 'Mapping actions not yet implemented in hooks handler: ' . $action;
@@ -271,6 +492,57 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
             $customerDAO, $transactionDAO, $paymentDAO, $paymentMatchDAO,
             $logDAO, $txnValidator, $custValidator, $paymentValidator, $matchingService
         );
+    }
+
+    private function getProcessingPipeline()
+    {
+        $tablePrefix = defined('TB_PREF') ? TB_PREF : '0_';
+        $db = new \ksf_ModulesDAO();
+        $customerDAO = new \Ksfraser\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
+        $transactionDAO = new \Ksfraser\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
+        $paymentDAO = new \Ksfraser\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
+        $logDAO = new \Ksfraser\ImportStaging\DAO\StagingLogDAO($tablePrefix, $db);
+        return new \Ksfraser\ImportStaging\Services\ProcessingPipeline(
+            $customerDAO, $transactionDAO, $paymentDAO, $logDAO
+        );
+    }
+
+    /**
+     * Check authorization via hook_invoke_first('authorize').
+     *
+     * Calls the ksf_FA_RBAC authorize event if available. Returns true
+     * (allow) when no RBAC module is installed or no user context exists.
+     */
+    private function authorizeAction(
+        string $action,
+        string $resourceType = 'staging_record',
+        ?int $resourceId = null
+    ): bool {
+        if (!function_exists('hook_invoke_first')) {
+            return true;
+        }
+
+        $userId = null;
+        if (isset($_SESSION) && isset($_SESSION['wa_current_user']->user)) {
+            $userId = (int) $_SESSION['wa_current_user']->user;
+        }
+
+        if ($userId === null) {
+            return true;
+        }
+
+        $authData = [
+            'user_id'       => $userId,
+            'action'        => $action,
+            'module'        => 'staging',
+            'resource_type' => $resourceType,
+        ];
+        if ($resourceId !== null) {
+            $authData['resource_id'] = $resourceId;
+        }
+
+        $result = hook_invoke_first('authorize', $authData);
+        return $result !== false;
     }
 
     function install_tabs($app)

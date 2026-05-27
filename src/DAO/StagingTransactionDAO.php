@@ -42,6 +42,7 @@ class StagingTransactionDAO
             fa_invoice_no INT(11) DEFAULT NULL,
             fa_debtor_no INT(11) DEFAULT NULL,
             error_log TEXT DEFAULT NULL,
+            source_updated_at DATETIME DEFAULT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
@@ -61,8 +62,8 @@ class StagingTransactionDAO
         $sql = "INSERT INTO {$this->tableName} 
             (source, source_transaction_id, source_order_id, source_payment_id, transaction_date,
              total_amount, tax_amount, tip_amount, discount_amount, shipping_amount, currency,
-             customer_name, customer_email, customer_id, raw_json, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+             customer_name, customer_email, customer_id, raw_json, status, source_updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $this->db->query($sql, [
             $transaction->getSource(),
             $transaction->getSourceTransactionId(),
@@ -80,6 +81,7 @@ class StagingTransactionDAO
             $transaction->getCustomerId(),
             $transaction->getRawJson(),
             $transaction->getStatus(),
+            $transaction->getSourceUpdatedAt() ? $transaction->getSourceUpdatedAt()->format('Y-m-d H:i:s') : null,
         ]);
         $id = (int)$this->db->insertId();
         $transaction->setId($id);
@@ -166,6 +168,41 @@ class StagingTransactionDAO
             $result[$row['status']] = (int)$row['count'];
         }
         return $result;
+    }
+
+    public function updateBySource(StagingTransaction $transaction): bool
+    {
+        $sql = "UPDATE {$this->tableName} SET
+            source_order_id = ?, source_payment_id = ?, transaction_date = ?,
+            total_amount = ?, tax_amount = ?, tip_amount = ?, discount_amount = ?, shipping_amount = ?,
+            currency = ?, customer_name = ?, customer_email = ?, customer_id = ?, raw_json = ?,
+            status = ?, match_confidence = ?, fa_invoice_no = ?, fa_debtor_no = ?, error_log = ?,
+            source_updated_at = ?
+            WHERE source = ? AND source_transaction_id = ?";
+        $this->db->query($sql, [
+            $transaction->getSourceOrderId(),
+            $transaction->getSourcePaymentId(),
+            $transaction->getTransactionDate() ? $transaction->getTransactionDate()->format('Y-m-d') : null,
+            $transaction->getTotalAmount(),
+            $transaction->getTaxAmount(),
+            $transaction->getTipAmount(),
+            $transaction->getDiscountAmount(),
+            $transaction->getShippingAmount(),
+            $transaction->getCurrency(),
+            $transaction->getCustomerName(),
+            $transaction->getCustomerEmail(),
+            $transaction->getCustomerId(),
+            $transaction->getRawJson(),
+            $transaction->getStatus(),
+            $transaction->getMatchConfidence(),
+            $transaction->getFaInvoiceNo(),
+            $transaction->getFaDebtorNo(),
+            $transaction->getErrorLog(),
+            $transaction->getSourceUpdatedAt() ? $transaction->getSourceUpdatedAt()->format('Y-m-d H:i:s') : null,
+            $transaction->getSource(),
+            $transaction->getSourceTransactionId(),
+        ]);
+        return $this->db->affectedRows() > 0;
     }
 
     public function getQueueForProcessing(?string $source = null, int $limit = 100): array
