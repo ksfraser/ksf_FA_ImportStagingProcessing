@@ -9,6 +9,7 @@ use Ksfraser\ImportStaging\Contracts\ProcessingResult;
 use Ksfraser\ImportStaging\DAO\StagingCustomerDAO;
 use Ksfraser\ImportStaging\DAO\StagingTransactionDAO;
 use Ksfraser\ImportStaging\DAO\StagingPaymentDAO;
+use Ksfraser\ImportStaging\DAO\StagingLineItemDAO;
 use Ksfraser\ImportStaging\DAO\StagingLogDAO;
 use Ksfraser\ImportStaging\Models\StagingCustomer;
 use Ksfraser\ImportStaging\Models\StagingTransaction;
@@ -19,6 +20,7 @@ class ProcessingPipelineTest extends TestCase
     private $customerDAO;
     private $transactionDAO;
     private $paymentDAO;
+    private $lineItemDAO;
     private $logDAO;
     private ProcessingPipeline $pipeline;
 
@@ -27,11 +29,13 @@ class ProcessingPipelineTest extends TestCase
         $this->customerDAO = $this->createMock(StagingCustomerDAO::class);
         $this->transactionDAO = $this->createMock(StagingTransactionDAO::class);
         $this->paymentDAO = $this->createMock(StagingPaymentDAO::class);
+        $this->lineItemDAO = $this->createMock(StagingLineItemDAO::class);
         $this->logDAO = $this->createMock(StagingLogDAO::class);
         $this->pipeline = new ProcessingPipeline(
             $this->customerDAO,
             $this->transactionDAO,
             $this->paymentDAO,
+            $this->lineItemDAO,
             $this->logDAO
         );
     }

@@ -10,6 +10,7 @@ use Ksfraser\ImportStaging\DAO\StagingCustomerDAO;
 use Ksfraser\ImportStaging\DAO\StagingTransactionDAO;
 use Ksfraser\ImportStaging\DAO\StagingPaymentDAO;
 use Ksfraser\ImportStaging\DAO\StagingPaymentMatchDAO;
+use Ksfraser\ImportStaging\DAO\StagingLineItemDAO;
 use Ksfraser\ImportStaging\DAO\StagingLogDAO;
 use Ksfraser\ImportStaging\Validators\TransactionValidator;
 use Ksfraser\ImportStaging\Validators\CustomerValidator;
@@ -36,6 +37,7 @@ class StagingServiceTest extends TestCase
         $customerDAO = new StagingCustomerDAO($tablePrefix, $db);
         $paymentDAO = new StagingPaymentDAO($tablePrefix, $db);
         $paymentMatchDAO = new StagingPaymentMatchDAO($tablePrefix, $db);
+        $lineItemDAO = new StagingLineItemDAO($tablePrefix, $db);
         $this->logDAO = new StagingLogDAO($tablePrefix, $db);
         $txnValidator = new TransactionValidator();
         $custValidator = new CustomerValidator();
@@ -43,7 +45,7 @@ class StagingServiceTest extends TestCase
         $matchingService = new MatchingService();
         $this->service = new StagingService(
             $customerDAO, $this->transactionDAO, $paymentDAO, $paymentMatchDAO,
-            $this->logDAO, $txnValidator, $custValidator, $paymentValidator,
+            $lineItemDAO, $this->logDAO, $txnValidator, $custValidator, $paymentValidator,
             $matchingService
         );
     }

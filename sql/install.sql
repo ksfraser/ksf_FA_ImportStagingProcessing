@@ -72,23 +72,52 @@ CREATE TABLE IF NOT EXISTS TB_PREFstaging_transactions (
 
 -- ============================================================================
 -- staging_line_items - Line items per staged transaction
+-- Core columns for all sources; extended fields go into
+-- staging_line_item_attributes (name-value pairs).
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS TB_PREFstaging_line_items (
     id INT(11) NOT NULL AUTO_INCREMENT,
     staging_transaction_id INT(11) NOT NULL,
+    source VARCHAR(32) NOT NULL COMMENT 'Source module: woocommerce, square_api, square_csv, paypal, bank',
+    source_id VARCHAR(64) DEFAULT NULL COMMENT 'Line item ID in source system',
+    source_updated_at DATETIME DEFAULT NULL COMMENT 'Last update timestamp from source system',
+    line_number INT(11) NOT NULL DEFAULT 0,
     sku VARCHAR(64) DEFAULT NULL,
-    name VARCHAR(255) DEFAULT NULL,
+    name VARCHAR(255) NOT NULL DEFAULT '',
     description TEXT DEFAULT NULL,
-    quantity DECIMAL(15,2) DEFAULT 0.00,
-    unit_price DECIMAL(15,2) DEFAULT 0.00,
-    total_amount DECIMAL(15,2) DEFAULT 0.00,
-    tax_amount DECIMAL(15,2) DEFAULT 0.00,
-    discount_amount DECIMAL(15,2) DEFAULT 0.00,
-    raw_json LONGTEXT DEFAULT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    item_type VARCHAR(32) DEFAULT NULL COMMENT 'product, shipping, discount, fee, tax',
+    quantity DECIMAL(15,4) NOT NULL DEFAULT 1.0000,
+    unit_price DECIMAL(15,4) NOT NULL DEFAULT 0.0000,
+    tax_amount DECIMAL(15,4) NOT NULL DEFAULT 0.0000,
+    tax_percent DECIMAL(7,4) NOT NULL DEFAULT 0.0000,
+    discount_amount DECIMAL(15,4) NOT NULL DEFAULT 0.0000,
+    discount_percent DECIMAL(7,4) NOT NULL DEFAULT 0.0000,
+    total_amount DECIMAL(15,4) NOT NULL DEFAULT 0.0000,
+    currency VARCHAR(8) NOT NULL DEFAULT 'CAD',
+    status VARCHAR(16) NOT NULL DEFAULT 'staged' COMMENT 'staged, processed, failed',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_staging_transaction (staging_transaction_id),
+    KEY idx_transaction (staging_transaction_id),
+    KEY idx_source (source, source_id),
+    KEY idx_status (status),
     KEY idx_sku (sku)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================================
+-- staging_line_item_attributes - Name-value pairs for source-specific fields
+-- Allows Square (20+ fields), WooCommerce, PayPal, etc. to store their own
+-- extended fields without schema changes. Avoids wide sparse tables.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS TB_PREFstaging_line_item_attributes (
+    id INT(11) NOT NULL AUTO_INCREMENT,
+    line_item_id INT(11) NOT NULL,
+    attribute_key VARCHAR(64) NOT NULL,
+    attribute_value TEXT DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_line_item (line_item_id),
+    KEY idx_key (attribute_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================================

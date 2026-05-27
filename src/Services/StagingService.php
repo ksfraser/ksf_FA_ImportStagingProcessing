@@ -10,10 +10,12 @@ use Ksfraser\ImportStaging\Models\StagingCustomer;
 use Ksfraser\ImportStaging\Models\StagingTransaction;
 use Ksfraser\ImportStaging\Models\StagingPayment;
 use Ksfraser\ImportStaging\Models\StagingPaymentMatch;
+use Ksfraser\ImportStaging\Models\StagingLineItem;
 use Ksfraser\ImportStaging\DAO\StagingCustomerDAO;
 use Ksfraser\ImportStaging\DAO\StagingTransactionDAO;
 use Ksfraser\ImportStaging\DAO\StagingPaymentDAO;
 use Ksfraser\ImportStaging\DAO\StagingPaymentMatchDAO;
+use Ksfraser\ImportStaging\DAO\StagingLineItemDAO;
 use Ksfraser\ImportStaging\DAO\StagingLogDAO;
 use Ksfraser\ImportStaging\Exceptions\DuplicateTransactionException;
 use Ksfraser\ImportStaging\Exceptions\InvalidSourceException;
@@ -27,6 +29,7 @@ class StagingService implements StagingManagerInterface
     private StagingTransactionDAO $transactionDAO;
     private StagingPaymentDAO $paymentDAO;
     private StagingPaymentMatchDAO $paymentMatchDAO;
+    private StagingLineItemDAO $lineItemDAO;
     private StagingLogDAO $logDAO;
     private TransactionValidator $transactionValidator;
     private CustomerValidator $customerValidator;
@@ -39,6 +42,7 @@ class StagingService implements StagingManagerInterface
         StagingTransactionDAO $transactionDAO,
         StagingPaymentDAO $paymentDAO,
         StagingPaymentMatchDAO $paymentMatchDAO,
+        StagingLineItemDAO $lineItemDAO,
         StagingLogDAO $logDAO,
         TransactionValidator $transactionValidator,
         CustomerValidator $customerValidator,
@@ -50,6 +54,7 @@ class StagingService implements StagingManagerInterface
         $this->transactionDAO = $transactionDAO;
         $this->paymentDAO = $paymentDAO;
         $this->paymentMatchDAO = $paymentMatchDAO;
+        $this->lineItemDAO = $lineItemDAO;
         $this->logDAO = $logDAO;
         $this->transactionValidator = $transactionValidator;
         $this->customerValidator = $customerValidator;
@@ -346,6 +351,57 @@ class StagingService implements StagingManagerInterface
     public function getPaymentStatusCounts(?string $source = null): array
     {
         return $this->paymentDAO->countByStatus($source);
+    }
+
+    // ========================================================================
+    // Line item staging
+    // ========================================================================
+
+    public function stageLineItem(array $data, string $source): StagingLineItem
+    {
+        $this->validateSource($source);
+        $item = StagingLineItem::fromArray(array_merge($data, ['source' => $source]));
+        if ($item->getStagingTransactionId() <= 0) {
+            throw \Ksfraser\ImportStaging\Exceptions\StagingException::validationFailed(
+                ['staging_transaction_id is required']
+            );
+        }
+        $id = $this->lineItemDAO->insert($item);
+        $this->logDAO->log('line_item', $id, 'staged', $source);
+        return $item;
+    }
+
+    public function stageOrUpdateLineItem(array $data, string $source): StagingLineItem
+    {
+        $this->validateSource($source);
+        $item = StagingLineItem::fromArray(array_merge($data, ['source' => $source]));
+        if ($item->getSourceId()) {
+            $existing = $this->lineItemDAO->findBySource($source, $item->getSourceId());
+            if (!empty($existing)) {
+                $this->lineItemDAO->updateBySource($item);
+                $this->logDAO->log('line_item', $existing[0]->getId(), 'updated', $source);
+                return $item;
+            }
+        }
+        $id = $this->lineItemDAO->insert($item);
+        $this->logDAO->log('line_item', $id, 'staged', $source);
+        return $item;
+    }
+
+    public function getLineItemsByTransaction(int $stagingTransactionId): array
+    {
+        return $this->lineItemDAO->findByTransactionId($stagingTransactionId);
+    }
+
+    public function getLineItemsBySource(string $source, ?string $sourceId = null): array
+    {
+        return $this->lineItemDAO->findBySource($source, $sourceId);
+    }
+
+    public function deleteLineItemsByTransaction(int $stagingTransactionId): void
+    {
+        $this->lineItemDAO->deleteByTransactionId($stagingTransactionId);
+        $this->logDAO->log('line_item', $stagingTransactionId, 'deleted', null);
     }
 
     /**

@@ -8,6 +8,7 @@ use Ksfraser\ImportStaging\Contracts\ProcessorInterface;
 use Ksfraser\ImportStaging\DAO\StagingCustomerDAO;
 use Ksfraser\ImportStaging\DAO\StagingTransactionDAO;
 use Ksfraser\ImportStaging\DAO\StagingPaymentDAO;
+use Ksfraser\ImportStaging\DAO\StagingLineItemDAO;
 use Ksfraser\ImportStaging\DAO\StagingLogDAO;
 
 /**
@@ -22,6 +23,7 @@ class ProcessingPipeline implements ProcessorInterface
     private StagingCustomerDAO $customerDAO;
     private StagingTransactionDAO $transactionDAO;
     private StagingPaymentDAO $paymentDAO;
+    private StagingLineItemDAO $lineItemDAO;
     private StagingLogDAO $logDAO;
     private array $processedIds;
 
@@ -29,11 +31,13 @@ class ProcessingPipeline implements ProcessorInterface
         StagingCustomerDAO $customerDAO,
         StagingTransactionDAO $transactionDAO,
         StagingPaymentDAO $paymentDAO,
+        StagingLineItemDAO $lineItemDAO,
         StagingLogDAO $logDAO
     ) {
         $this->customerDAO = $customerDAO;
         $this->transactionDAO = $transactionDAO;
         $this->paymentDAO = $paymentDAO;
+        $this->lineItemDAO = $lineItemDAO;
         $this->logDAO = $logDAO;
         $this->processedIds = [];
     }
@@ -336,6 +340,21 @@ class ProcessingPipeline implements ProcessorInterface
 
     private function buildTransactionFaData($txn, int $debtorNo): array
     {
+        $lineItems = $this->lineItemDAO->findByTransactionId($txn->getId());
+        $lineItemData = [];
+        foreach ($lineItems as $item) {
+            $lineItemData[] = [
+                'stock_id' => $item->getSku() ?? '',
+                'description' => $item->getDescription() ?? $item->getName(),
+                'quantity' => $item->getQuantity(),
+                'unit_price' => $item->getUnitPrice(),
+                'tax_amount' => $item->getTaxAmount(),
+                'tax_percent' => $item->getTaxPercent(),
+                'discount_percent' => $item->getDiscountPercent(),
+                'total_amount' => $item->getTotalAmount(),
+            ];
+        }
+
         return [
             'customer_id' => $debtorNo,
             'reference' => $txn->getSourceOrderId() ?? $txn->getSourceTransactionId(),
@@ -344,6 +363,10 @@ class ProcessingPipeline implements ProcessorInterface
             'transaction_date' => $txn->getTransactionDate()
                 ? $txn->getTransactionDate()->format('Y-m-d')
                 : date('Y-m-d'),
+            'source' => $txn->getSource(),
+            'source_transaction_id' => $txn->getSourceTransactionId(),
+            'source_order_id' => $txn->getSourceOrderId(),
+            'line_items' => $lineItemData,
         ];
     }
 

@@ -483,6 +483,7 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         $transactionDAO = new \Ksfraser\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
         $paymentDAO = new \Ksfraser\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
         $paymentMatchDAO = new \Ksfraser\ImportStaging\DAO\StagingPaymentMatchDAO($tablePrefix, $db);
+        $lineItemDAO = new \Ksfraser\ImportStaging\DAO\StagingLineItemDAO($tablePrefix, $db);
         $logDAO = new \Ksfraser\ImportStaging\DAO\StagingLogDAO($tablePrefix, $db);
         $txnValidator = new \Ksfraser\ImportStaging\Validators\TransactionValidator();
         $custValidator = new \Ksfraser\ImportStaging\Validators\CustomerValidator();
@@ -490,7 +491,7 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         $matchingService = new \Ksfraser\ImportStaging\Services\MatchingService();
         return new \Ksfraser\ImportStaging\Services\StagingService(
             $customerDAO, $transactionDAO, $paymentDAO, $paymentMatchDAO,
-            $logDAO, $txnValidator, $custValidator, $paymentValidator, $matchingService
+            $lineItemDAO, $logDAO, $txnValidator, $custValidator, $paymentValidator, $matchingService
         );
     }
 
@@ -501,9 +502,10 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         $customerDAO = new \Ksfraser\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
         $transactionDAO = new \Ksfraser\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
         $paymentDAO = new \Ksfraser\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
+        $lineItemDAO = new \Ksfraser\ImportStaging\DAO\StagingLineItemDAO($tablePrefix, $db);
         $logDAO = new \Ksfraser\ImportStaging\DAO\StagingLogDAO($tablePrefix, $db);
         return new \Ksfraser\ImportStaging\Services\ProcessingPipeline(
-            $customerDAO, $transactionDAO, $paymentDAO, $logDAO
+            $customerDAO, $transactionDAO, $paymentDAO, $lineItemDAO, $logDAO
         );
     }
 
