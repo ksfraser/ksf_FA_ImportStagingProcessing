@@ -1,0 +1,82 @@
+{
+    "name": "ksfraser/import-staging",
+    "description": "Unified staging tables and processing pipeline for third-party imports into FrontAccounting (WooCommerce, Square API, Square CSV, PayPal, Bank Import)",
+    "type": "fa-module",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "Kevin Fraser",
+            "email": "kevin@ksfraser.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "type": "path",
+            "url": "/tmp/ksf_libs/ksf_ModulesDAO",
+            "canonical": false
+        },
+        {
+            "type": "path",
+            "url": "/tmp/ksf_libs/Contact-DTO",
+            "canonical": false
+        },
+        {
+            "type": "path",
+            "url": "/tmp/ksf_libs/FILE",
+            "canonical": false
+        },
+        {
+            "type": "path",
+            "url": "/tmp/ksf_libs/Traits",
+            "canonical": false
+        },
+        {
+            "type": "path",
+            "url": "/tmp/ksf_libs/Exceptions",
+            "canonical": false
+        },
+        {
+            "type": "path",
+            "url": "/tmp/ksf_libs/FAMock",
+            "canonical": false
+        }
+    ],
+    "require": {
+        "php": ">=7.3",
+        "ext-json": "*",
+        "ksfraser/ksf-modules-dao": "*",
+        "ksfraser/contact-dto": "*",
+        "ksfraser/file": "*",
+        "ksfraser/traits": "*",
+        "ksfraser/exceptions": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.6",
+        "ksfraser/famock": "^0.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "Ksfraser\\ImportStaging\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Ksfraser\\ImportStaging\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test-coverage": "phpunit --coverage-html coverage/"
+    },
+    "extra": {
+        "fa-module": {
+            "name": "Import Staging Processing",
+            "description": "Unified staging and processing for post-import operations",
+            "page": "ksf_import_staging.php",
+            "version": "0.1.0",
+            "depends": ["ksf_ModulesDAO", "ksf_libs"]
+        }
+    }
+}
