@@ -19,6 +19,24 @@ foreach ($famockPaths as $p) {
     }
 }
 
+// Ensure hooks class is defined (FAMock should provide it, but define a minimal stub if not)
+if (!class_exists('hooks')) {
+    class hooks
+    {
+        public $module_name = '';
+
+        public function install_tables() { return true; }
+        public function install_access() { return true; }
+        public function activate_extension($company, $check_only = true) { return true; }
+        public function deactivate_extension($company) { return true; }
+    }
+}
+
+// -----------------------------------------------------------------------
+// Load hooks.php for integration tests (requires hooks base class from FAMock)
+// -----------------------------------------------------------------------
+require_once dirname(__DIR__, 1) . '/hooks.php';
+
 // -----------------------------------------------------------------------
 // Define FA hooks function not provided by FAMock
 // -----------------------------------------------------------------------

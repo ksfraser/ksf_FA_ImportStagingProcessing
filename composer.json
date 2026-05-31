@@ -14,21 +14,43 @@
     "repositories": [
         {
             "type": "path",
-            "url": "vendor/ksfraser/famock"
+            "url": "ksf_libs/ksf_ModulesDAO",
+            "canonical": false
         },
         {
-            "type": "vcs",
-            "url": "https://github.com/ksfraser/Traits.git"
+            "type": "path",
+            "url": "ksf_libs/Contact-DTO",
+            "canonical": false
+        },
+        {
+            "type": "path",
+            "url": "ksf_libs/FILE",
+            "canonical": false
+        },
+        {
+            "type": "path",
+            "url": "ksf_libs/Traits",
+            "canonical": false
+        },
+        {
+            "type": "path",
+            "url": "ksf_libs/Exceptions",
+            "canonical": false
+        },
+        {
+            "type": "path",
+            "url": "ksf_libs/FAMock",
+            "canonical": false
         }
     ],
     "require": {
-        "php": ">=7.3",
+        "php": ">=7.4",
         "ext-json": "*",
-        "ksfraser/modules-dao": "^1.0",
-        "ksfraser/contact-dto": "^0.1",
-        "ksfraser/file": "^1.0",
-        "ksfraser/traits": "dev-main",
-        "ksfraser/exceptions": "^1.3"
+        "ksfraser/ksf-modules-dao": "*",
+        "ksfraser/contact-dto": "*",
+        "ksfraser/file": "*",
+        "ksfraser/traits": "*",
+        "ksfraser/exceptions": "*"
     },
     "require-dev": {
         "phpunit/phpunit": "^9.6",

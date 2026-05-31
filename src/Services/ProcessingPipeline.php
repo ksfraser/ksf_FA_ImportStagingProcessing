@@ -46,11 +46,14 @@ class ProcessingPipeline implements ProcessorInterface
     {
         $type = $context['type'] ?? $record['_type'] ?? 'transaction';
 
-        return match ($type) {
-            'customer' => $this->processSingleCustomer($record),
-            'payment' => $this->processSinglePayment($record),
-            default => ProcessingResult::failure(0, 'unsupported_type', ["Unsupported type: $type"]),
-        };
+        switch ($type) {
+            case 'customer':
+                return $this->processSingleCustomer($record);
+            case 'payment':
+                return $this->processSinglePayment($record);
+            default:
+                return ProcessingResult::failure(0, 'unsupported_type', ["Unsupported type: $type"]);
+        }
     }
 
     public function canProcess(array $record): bool

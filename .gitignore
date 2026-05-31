@@ -11,3 +11,5 @@ phpunit.phar
 001-*.md
 002-*.md
 CustomerMatching_*.md
+/ksf_libs/
+/hooks_php56.php
