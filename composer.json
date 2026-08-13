@@ -11,10 +11,16 @@
     ],
     "minimum-stability": "dev",
     "prefer-stable": true,
+    "config": {
+        "platform": {
+            "php": "7.4.33"
+        }
+    },
     "repositories": [
         {
             "type": "path",
-            "url": "vendor/ksfraser/famock"
+            "url": "vendor/ksfraser/famock",
+            "canonical": false
         },
         {
             "type": "vcs",
@@ -24,9 +30,9 @@
     "require": {
         "php": ">=7.3",
         "ext-json": "*",
-        "ksfraser/modules-dao": "^1.0",
+        "ksfraser/ksf-modules-dao": "^0.3",
         "ksfraser/contact-dto": "^0.1",
-        "ksfraser/file": "^1.0",
+        "ksfraser/file": "dev-main",
         "ksfraser/traits": "dev-main",
         "ksfraser/exceptions": "^1.3"
     },
