@@ -495,8 +495,27 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         return null;
     }
 
+    private function ensureRuntimeAutoload()
+    {
+        static $loaded = false;
+        if ($loaded) {
+            return;
+        }
+        $moduleDir = dirname(__FILE__);
+        $autoloadPath = $moduleDir . '/vendor/autoload.php';
+        if (file_exists($autoloadPath)) {
+            require_once $autoloadPath;
+        }
+        $daoFile = $moduleDir . '/vendor/ksfraser/ksf-modules-dao/src/ksf_ModulesDAO.php';
+        if (file_exists($daoFile)) {
+            require_once $daoFile;
+        }
+        $loaded = true;
+    }
+
     private function getStagingService()
     {
+        $this->ensureRuntimeAutoload();
         $tablePrefix = defined('TB_PREF') ? TB_PREF : '0_';
         $db = new \ksf_ModulesDAO();
         $customerDAO = new \Ksfraser\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
@@ -517,6 +536,7 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
 
     private function getProcessingPipeline()
     {
+        $this->ensureRuntimeAutoload();
         $tablePrefix = defined('TB_PREF') ? TB_PREF : '0_';
         $db = new \ksf_ModulesDAO();
         $customerDAO = new \Ksfraser\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
