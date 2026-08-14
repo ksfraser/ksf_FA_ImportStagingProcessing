@@ -102,7 +102,7 @@ class StagingLineItemDAO
                     '" . $this->db->escape($item->getStatus()) . "'
                 )";
         $this->db->query($sql);
-        $id = (int)$this->db->insertId();
+        $id = (int)db_insert_id();
 
         $this->insertAttributes($id, $item->getAttributes());
 
@@ -118,7 +118,7 @@ class StagingLineItemDAO
         if ($result === null) {
             return [];
         }
-        $rows = $result->fetchAll();
+        $rows = $result->fetch_all();
         $items = [];
         foreach ($rows as $row) {
             $item = $this->rowToItem($row);
@@ -140,7 +140,7 @@ class StagingLineItemDAO
         if ($result === null) {
             return [];
         }
-        $rows = $result->fetchAll();
+        $rows = $result->fetch_all();
         $items = [];
         foreach ($rows as $row) {
             $item = $this->rowToItem($row);
@@ -162,7 +162,7 @@ class StagingLineItemDAO
         if ($result === null) {
             return [];
         }
-        $rows = $result->fetchAll();
+        $rows = $result->fetch_all();
         $items = [];
         foreach ($rows as $row) {
             $item = $this->rowToItem($row);
@@ -207,7 +207,7 @@ class StagingLineItemDAO
         $subSql = "SELECT id FROM {$this->tableName} WHERE staging_transaction_id = $transactionId";
         $result = $this->db->query($subSql);
         if ($result !== null) {
-            $rows = $result->fetchAll();
+            $rows = $result->fetch_all();
             foreach ($rows as $row) {
                 $this->deleteAttributes((int)$row['id']);
             }
@@ -238,7 +238,7 @@ class StagingLineItemDAO
         if ($result === null) {
             return [];
         }
-        $rows = $result->fetchAll();
+        $rows = $result->fetch_all();
         $attrs = [];
         foreach ($rows as $row) {
             $attrs[$row['attribute_key']] = $row['attribute_value'];

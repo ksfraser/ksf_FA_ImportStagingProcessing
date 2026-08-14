@@ -87,7 +87,7 @@ class StagingPaymentDAO
             $payment->getStatus(),
             $payment->getSourceUpdatedAt() ? $payment->getSourceUpdatedAt()->format('Y-m-d H:i:s') : null,
         ]);
-        $id = (int)$this->db->insertId();
+        $id = (int)db_insert_id();
         $payment->setId($id);
         return $id;
     }
@@ -95,14 +95,14 @@ class StagingPaymentDAO
     public function findById(int $id): ?StagingPayment
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE id = ?";
-        $row = $this->db->query($sql, [$id])->fetchAssoc();
+        $row = $this->db->query($sql, [$id])->fetch_assoc();
         return $row ? StagingPayment::fromArray($row) : null;
     }
 
     public function findBySource(string $source, string $sourcePaymentId): ?StagingPayment
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE source = ? AND source_payment_id = ?";
-        $row = $this->db->query($sql, [$source, $sourcePaymentId])->fetchAssoc();
+        $row = $this->db->query($sql, [$source, $sourcePaymentId])->fetch_assoc();
         return $row ? StagingPayment::fromArray($row) : null;
     }
 
@@ -110,10 +110,10 @@ class StagingPaymentDAO
     {
         if ($source) {
             $sql = "SELECT * FROM {$this->tableName} WHERE status = ? AND source = ? ORDER BY created_at ASC";
-            $rows = $this->db->query($sql, [$status, $source])->fetchAll();
+            $rows = $this->db->query($sql, [$status, $source])->fetch_all();
         } else {
             $sql = "SELECT * FROM {$this->tableName} WHERE status = ? ORDER BY created_at ASC";
-            $rows = $this->db->query($sql, [$status])->fetchAll();
+            $rows = $this->db->query($sql, [$status])->fetch_all();
         }
         return array_map(fn($row) => StagingPayment::fromArray($row), $rows);
     }
@@ -122,10 +122,10 @@ class StagingPaymentDAO
     {
         if ($source) {
             $sql = "SELECT * FROM {$this->tableName} WHERE payment_date BETWEEN ? AND ? AND source = ? ORDER BY payment_date ASC";
-            $rows = $this->db->query($sql, [$from->format('Y-m-d'), $to->format('Y-m-d'), $source])->fetchAll();
+            $rows = $this->db->query($sql, [$from->format('Y-m-d'), $to->format('Y-m-d'), $source])->fetch_all();
         } else {
             $sql = "SELECT * FROM {$this->tableName} WHERE payment_date BETWEEN ? AND ? ORDER BY payment_date ASC";
-            $rows = $this->db->query($sql, [$from->format('Y-m-d'), $to->format('Y-m-d')])->fetchAll();
+            $rows = $this->db->query($sql, [$from->format('Y-m-d'), $to->format('Y-m-d')])->fetch_all();
         }
         return array_map(fn($row) => StagingPayment::fromArray($row), $rows);
     }
@@ -133,7 +133,7 @@ class StagingPaymentDAO
     public function findByTransaction(int $stagingTransactionId): array
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE staging_transaction_id = ? ORDER BY amount DESC";
-        $rows = $this->db->query($sql, [$stagingTransactionId])->fetchAll();
+        $rows = $this->db->query($sql, [$stagingTransactionId])->fetch_all();
         return array_map(fn($row) => StagingPayment::fromArray($row), $rows);
     }
 
@@ -169,10 +169,10 @@ class StagingPaymentDAO
     {
         if ($source) {
             $sql = "SELECT status, COUNT(*) as count FROM {$this->tableName} WHERE source = ? GROUP BY status";
-            $rows = $this->db->query($sql, [$source])->fetchAll();
+            $rows = $this->db->query($sql, [$source])->fetch_all();
         } else {
             $sql = "SELECT status, COUNT(*) as count FROM {$this->tableName} GROUP BY status";
-            $rows = $this->db->query($sql)->fetchAll();
+            $rows = $this->db->query($sql)->fetch_all();
         }
         $result = [];
         foreach ($rows as $row) {
@@ -229,7 +229,7 @@ class StagingPaymentDAO
         $where = implode(' AND ', $conditions);
         $sql = "SELECT * FROM {$this->tableName} WHERE {$where} ORDER BY payment_date ASC LIMIT ?";
         $params[] = $limit;
-        $rows = $this->db->query($sql, $params)->fetchAll();
+        $rows = $this->db->query($sql, $params)->fetch_all();
         return array_map(fn($row) => StagingPayment::fromArray($row), $rows);
     }
 }

@@ -83,7 +83,7 @@ class StagingTransactionDAO
             $transaction->getStatus(),
             $transaction->getSourceUpdatedAt() ? $transaction->getSourceUpdatedAt()->format('Y-m-d H:i:s') : null,
         ]);
-        $id = (int)$this->db->insertId();
+        $id = (int)db_insert_id();
         $transaction->setId($id);
         return $id;
     }
@@ -91,14 +91,14 @@ class StagingTransactionDAO
     public function findById(int $id): ?StagingTransaction
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE id = ?";
-        $row = $this->db->query($sql, [$id])->fetchAssoc();
+        $row = $this->db->query($sql, [$id])->fetch_assoc();
         return $row ? StagingTransaction::fromArray($row) : null;
     }
 
     public function findBySource(string $source, string $sourceTransactionId): ?StagingTransaction
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE source = ? AND source_transaction_id = ?";
-        $row = $this->db->query($sql, [$source, $sourceTransactionId])->fetchAssoc();
+        $row = $this->db->query($sql, [$source, $sourceTransactionId])->fetch_assoc();
         return $row ? StagingTransaction::fromArray($row) : null;
     }
 
@@ -106,10 +106,10 @@ class StagingTransactionDAO
     {
         if ($source) {
             $sql = "SELECT * FROM {$this->tableName} WHERE status = ? AND source = ? ORDER BY created_at ASC";
-            $rows = $this->db->query($sql, [$status, $source])->fetchAll();
+            $rows = $this->db->query($sql, [$status, $source])->fetch_all();
         } else {
             $sql = "SELECT * FROM {$this->tableName} WHERE status = ? ORDER BY created_at ASC";
-            $rows = $this->db->query($sql, [$status])->fetchAll();
+            $rows = $this->db->query($sql, [$status])->fetch_all();
         }
         return array_map(fn($row) => StagingTransaction::fromArray($row), $rows);
     }
@@ -118,10 +118,10 @@ class StagingTransactionDAO
     {
         if ($source) {
             $sql = "SELECT * FROM {$this->tableName} WHERE transaction_date BETWEEN ? AND ? AND source = ? ORDER BY transaction_date ASC";
-            $rows = $this->db->query($sql, [$from->format('Y-m-d'), $to->format('Y-m-d'), $source])->fetchAll();
+            $rows = $this->db->query($sql, [$from->format('Y-m-d'), $to->format('Y-m-d'), $source])->fetch_all();
         } else {
             $sql = "SELECT * FROM {$this->tableName} WHERE transaction_date BETWEEN ? AND ? ORDER BY transaction_date ASC";
-            $rows = $this->db->query($sql, [$from->format('Y-m-d'), $to->format('Y-m-d')])->fetchAll();
+            $rows = $this->db->query($sql, [$from->format('Y-m-d'), $to->format('Y-m-d')])->fetch_all();
         }
         return array_map(fn($row) => StagingTransaction::fromArray($row), $rows);
     }
@@ -158,10 +158,10 @@ class StagingTransactionDAO
     {
         if ($source) {
             $sql = "SELECT status, COUNT(*) as count FROM {$this->tableName} WHERE source = ? GROUP BY status";
-            $rows = $this->db->query($sql, [$source])->fetchAll();
+            $rows = $this->db->query($sql, [$source])->fetch_all();
         } else {
             $sql = "SELECT status, COUNT(*) as count FROM {$this->tableName} GROUP BY status";
-            $rows = $this->db->query($sql)->fetchAll();
+            $rows = $this->db->query($sql)->fetch_all();
         }
         $result = [];
         foreach ($rows as $row) {
@@ -216,7 +216,7 @@ class StagingTransactionDAO
         $where = implode(' AND ', $conditions);
         $sql = "SELECT * FROM {$this->tableName} WHERE {$where} ORDER BY created_at ASC LIMIT ?";
         $params[] = $limit;
-        $rows = $this->db->query($sql, $params)->fetchAll();
+        $rows = $this->db->query($sql, $params)->fetch_all();
         return array_map(fn($row) => StagingTransaction::fromArray($row), $rows);
     }
 }

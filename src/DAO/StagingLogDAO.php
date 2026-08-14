@@ -47,49 +47,49 @@ class StagingLogDAO
             $source,
             !empty($details) ? json_encode($details) : null,
         ]);
-        return (int)$this->db->insertId();
+        return (int)db_insert_id();
     }
 
     public function findByRecord(string $recordType, int $recordId): array
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE record_type = ? AND record_id = ? ORDER BY created_at DESC";
-        return $this->db->query($sql, [$recordType, $recordId])->fetchAll();
+        return $this->db->query($sql, [$recordType, $recordId])->fetch_all();
     }
 
     public function findByAction(string $action, ?string $source = null, int $limit = 100): array
     {
         if ($source) {
             $sql = "SELECT * FROM {$this->tableName} WHERE action = ? AND source = ? ORDER BY created_at DESC LIMIT ?";
-            return $this->db->query($sql, [$action, $source, $limit])->fetchAll();
+            return $this->db->query($sql, [$action, $source, $limit])->fetch_all();
         }
         $sql = "SELECT * FROM {$this->tableName} WHERE action = ? ORDER BY created_at DESC LIMIT ?";
-        return $this->db->query($sql, [$action, $limit])->fetchAll();
+        return $this->db->query($sql, [$action, $limit])->fetch_all();
     }
 
     public function findByDateRange(\DateTimeInterface $from, \DateTimeInterface $to, ?string $action = null): array
     {
         if ($action) {
             $sql = "SELECT * FROM {$this->tableName} WHERE created_at BETWEEN ? AND ? AND action = ? ORDER BY created_at DESC";
-            return $this->db->query($sql, [$from->format('Y-m-d H:i:s'), $to->format('Y-m-d H:i:s'), $action])->fetchAll();
+            return $this->db->query($sql, [$from->format('Y-m-d H:i:s'), $to->format('Y-m-d H:i:s'), $action])->fetch_all();
         }
         $sql = "SELECT * FROM {$this->tableName} WHERE created_at BETWEEN ? AND ? ORDER BY created_at DESC";
-        return $this->db->query($sql, [$from->format('Y-m-d H:i:s'), $to->format('Y-m-d H:i:s')])->fetchAll();
+        return $this->db->query($sql, [$from->format('Y-m-d H:i:s'), $to->format('Y-m-d H:i:s')])->fetch_all();
     }
 
     public function getRecent(int $limit = 50): array
     {
         $sql = "SELECT * FROM {$this->tableName} ORDER BY created_at DESC LIMIT ?";
-        return $this->db->query($sql, [$limit])->fetchAll();
+        return $this->db->query($sql, [$limit])->fetch_all();
     }
 
     public function countByAction(?string $source = null): array
     {
         if ($source) {
             $sql = "SELECT action, COUNT(*) as count FROM {$this->tableName} WHERE source = ? GROUP BY action";
-            $rows = $this->db->query($sql, [$source])->fetchAll();
+            $rows = $this->db->query($sql, [$source])->fetch_all();
         } else {
             $sql = "SELECT action, COUNT(*) as count FROM {$this->tableName} GROUP BY action";
-            $rows = $this->db->query($sql)->fetchAll();
+            $rows = $this->db->query($sql)->fetch_all();
         }
         $result = [];
         foreach ($rows as $row) {

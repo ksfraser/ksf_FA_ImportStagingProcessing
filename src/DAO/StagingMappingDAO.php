@@ -52,7 +52,7 @@ class StagingMappingDAO
             $mapping->getDefaultValue(),
             $mapping->isRequired() ? 1 : 0,
         ]);
-        $id = (int)$this->db->insertId();
+        $id = (int)db_insert_id();
         if ($id === 0) {
             $existing = $this->findBySourceField($mapping->getSource(), $mapping->getSourceField());
             $id = $existing ? $existing->getId() : 0;
@@ -65,14 +65,14 @@ class StagingMappingDAO
     {
         $this->ensureTableExists();
         $sql = "SELECT * FROM {$this->tableName} WHERE source = ?";
-        $rows = $this->db->query($sql, [$source])->fetchAll();
+        $rows = $this->db->query($sql, [$source])->fetch_all();
         return array_map(fn($row) => StagingMapping::fromArray($row), $rows);
     }
 
     public function findBySourceField(string $source, string $sourceField): ?StagingMapping
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE source = ? AND source_field = ?";
-        $row = $this->db->query($sql, [$source, $sourceField])->fetchAssoc();
+        $row = $this->db->query($sql, [$source, $sourceField])->fetch_assoc();
         return $row ? StagingMapping::fromArray($row) : null;
     }
 

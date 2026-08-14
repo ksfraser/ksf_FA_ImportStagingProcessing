@@ -60,7 +60,7 @@ class StagingPaymentMatchDAO
             $match->getMatchedBy(),
             $match->getNotes(),
         ]);
-        $id = (int)$this->db->insertId();
+        $id = (int)db_insert_id();
         $match->setId($id);
         return $id;
     }
@@ -68,21 +68,21 @@ class StagingPaymentMatchDAO
     public function findById(int $id): ?StagingPaymentMatch
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE id = ?";
-        $row = $this->db->query($sql, [$id])->fetchAssoc();
+        $row = $this->db->query($sql, [$id])->fetch_assoc();
         return $row ? StagingPaymentMatch::fromArray($row) : null;
     }
 
     public function findByPaymentId(int $stagingPaymentId): array
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE staging_payment_id = ? ORDER BY created_at DESC";
-        $rows = $this->db->query($sql, [$stagingPaymentId])->fetchAll();
+        $rows = $this->db->query($sql, [$stagingPaymentId])->fetch_all();
         return array_map(fn($row) => StagingPaymentMatch::fromArray($row), $rows);
     }
 
     public function findByStatus(string $matchStatus): array
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE match_status = ? ORDER BY created_at DESC";
-        $rows = $this->db->query($sql, [$matchStatus])->fetchAll();
+        $rows = $this->db->query($sql, [$matchStatus])->fetch_all();
         return array_map(fn($row) => StagingPaymentMatch::fromArray($row), $rows);
     }
 
@@ -100,7 +100,7 @@ class StagingPaymentMatchDAO
     public function getLatestByPaymentId(int $stagingPaymentId): ?StagingPaymentMatch
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE staging_payment_id = ? ORDER BY created_at DESC LIMIT 1";
-        $row = $this->db->query($sql, [$stagingPaymentId])->fetchAssoc();
+        $row = $this->db->query($sql, [$stagingPaymentId])->fetch_assoc();
         return $row ? StagingPaymentMatch::fromArray($row) : null;
     }
 }

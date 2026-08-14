@@ -71,7 +71,7 @@ class StagingCustomerDAO
             $customer->getStatus(),
             $customer->getSourceUpdatedAt() ? $customer->getSourceUpdatedAt()->format('Y-m-d H:i:s') : null,
         ]);
-        $id = (int)$this->db->insertId();
+        $id = (int)db_insert_id();
         $customer->setId($id);
         return $id;
     }
@@ -79,14 +79,14 @@ class StagingCustomerDAO
     public function findById(int $id): ?StagingCustomer
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE id = ?";
-        $row = $this->db->query($sql, [$id])->fetchAssoc();
+        $row = $this->db->query($sql, [$id])->fetch_assoc();
         return $row ? StagingCustomer::fromArray($row) : null;
     }
 
     public function findBySource(string $source, string $sourceCustomerId): ?StagingCustomer
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE source = ? AND source_customer_id = ?";
-        $row = $this->db->query($sql, [$source, $sourceCustomerId])->fetchAssoc();
+        $row = $this->db->query($sql, [$source, $sourceCustomerId])->fetch_assoc();
         return $row ? StagingCustomer::fromArray($row) : null;
     }
 
@@ -94,10 +94,10 @@ class StagingCustomerDAO
     {
         if ($source) {
             $sql = "SELECT * FROM {$this->tableName} WHERE status = ? AND source = ? ORDER BY created_at ASC";
-            $rows = $this->db->query($sql, [$status, $source])->fetchAll();
+            $rows = $this->db->query($sql, [$status, $source])->fetch_all();
         } else {
             $sql = "SELECT * FROM {$this->tableName} WHERE status = ? ORDER BY created_at ASC";
-            $rows = $this->db->query($sql, [$status])->fetchAll();
+            $rows = $this->db->query($sql, [$status])->fetch_all();
         }
         return array_map(fn($row) => StagingCustomer::fromArray($row), $rows);
     }
@@ -144,7 +144,7 @@ class StagingCustomerDAO
     public function findByEmail(string $email): array
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE email = ? ORDER BY created_at DESC";
-        $rows = $this->db->query($sql, [$email])->fetchAll();
+        $rows = $this->db->query($sql, [$email])->fetch_all();
         return array_map(fn($row) => StagingCustomer::fromArray($row), $rows);
     }
 
@@ -152,10 +152,10 @@ class StagingCustomerDAO
     {
         if ($source) {
             $sql = "SELECT status, COUNT(*) as count FROM {$this->tableName} WHERE source = ? GROUP BY status";
-            $rows = $this->db->query($sql, [$source])->fetchAll();
+            $rows = $this->db->query($sql, [$source])->fetch_all();
         } else {
             $sql = "SELECT status, COUNT(*) as count FROM {$this->tableName} GROUP BY status";
-            $rows = $this->db->query($sql)->fetchAll();
+            $rows = $this->db->query($sql)->fetch_all();
         }
         $result = [];
         foreach ($rows as $row) {

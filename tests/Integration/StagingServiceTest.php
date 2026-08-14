@@ -29,9 +29,9 @@ class StagingServiceTest extends TestCase
         $tablePrefix = '0_test_';
         $db = $this->createMock(\ksf_ModulesDAO::class);
         $stmt = $this->getMockBuilder(\stdClass::class)
-            ->addMethods(['fetchAll'])
+            ->addMethods(['fetch_all'])
             ->getMock();
-        $stmt->method('fetchAll')->willReturn([]);
+        $stmt->method('fetch_all')->willReturn([]);
         $db->method('query')->willReturn($stmt);
         $this->transactionDAO = new StagingTransactionDAO($tablePrefix, $db);
         $customerDAO = new StagingCustomerDAO($tablePrefix, $db);
