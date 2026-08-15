@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Models;
+namespace ksfraser\FrontAccounting\ImportStaging\Models;
 
 class StagingCustomer
 {

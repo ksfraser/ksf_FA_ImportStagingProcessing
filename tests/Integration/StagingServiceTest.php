@@ -1,22 +1,22 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Tests\Integration;
+namespace ksfraser\FrontAccounting\ImportStaging\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
-use Ksfraser\ImportStaging\Services\StagingService;
-use Ksfraser\ImportStaging\Services\MatchingService;
-use Ksfraser\ImportStaging\DAO\StagingCustomerDAO;
-use Ksfraser\ImportStaging\DAO\StagingTransactionDAO;
-use Ksfraser\ImportStaging\DAO\StagingPaymentDAO;
-use Ksfraser\ImportStaging\DAO\StagingPaymentMatchDAO;
-use Ksfraser\ImportStaging\DAO\StagingLineItemDAO;
-use Ksfraser\ImportStaging\DAO\StagingLogDAO;
-use Ksfraser\ImportStaging\Validators\TransactionValidator;
-use Ksfraser\ImportStaging\Validators\CustomerValidator;
-use Ksfraser\ImportStaging\Validators\PaymentValidator;
-use Ksfraser\ImportStaging\Exceptions\DuplicateTransactionException;
-use Ksfraser\ImportStaging\Exceptions\InvalidSourceException;
+use ksfraser\FrontAccounting\ImportStaging\Services\StagingService;
+use ksfraser\FrontAccounting\ImportStaging\Services\MatchingService;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentMatchDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingLineItemDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingLogDAO;
+use ksfraser\FrontAccounting\ImportStaging\Validators\TransactionValidator;
+use ksfraser\FrontAccounting\ImportStaging\Validators\CustomerValidator;
+use ksfraser\FrontAccounting\ImportStaging\Validators\PaymentValidator;
+use ksfraser\FrontAccounting\ImportStaging\Exceptions\DuplicateTransactionException;
+use ksfraser\FrontAccounting\ImportStaging\Exceptions\InvalidSourceException;
 
 class StagingServiceTest extends TestCase
 {

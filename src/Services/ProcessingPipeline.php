@@ -1,15 +1,15 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Services;
+namespace ksfraser\FrontAccounting\ImportStaging\Services;
 
-use Ksfraser\ImportStaging\Contracts\ProcessingResult;
-use Ksfraser\ImportStaging\Contracts\ProcessorInterface;
-use Ksfraser\ImportStaging\DAO\StagingCustomerDAO;
-use Ksfraser\ImportStaging\DAO\StagingTransactionDAO;
-use Ksfraser\ImportStaging\DAO\StagingPaymentDAO;
-use Ksfraser\ImportStaging\DAO\StagingLineItemDAO;
-use Ksfraser\ImportStaging\DAO\StagingLogDAO;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\ProcessingResult;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\ProcessorInterface;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingLineItemDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingLogDAO;
 
 /**
  * Orchestrates the processing pipeline: takes matched/approved staging records

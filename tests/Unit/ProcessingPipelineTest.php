@@ -1,19 +1,19 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Tests\Unit;
+namespace ksfraser\FrontAccounting\ImportStaging\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Ksfraser\ImportStaging\Services\ProcessingPipeline;
-use Ksfraser\ImportStaging\Contracts\ProcessingResult;
-use Ksfraser\ImportStaging\DAO\StagingCustomerDAO;
-use Ksfraser\ImportStaging\DAO\StagingTransactionDAO;
-use Ksfraser\ImportStaging\DAO\StagingPaymentDAO;
-use Ksfraser\ImportStaging\DAO\StagingLineItemDAO;
-use Ksfraser\ImportStaging\DAO\StagingLogDAO;
-use Ksfraser\ImportStaging\Models\StagingCustomer;
-use Ksfraser\ImportStaging\Models\StagingTransaction;
-use Ksfraser\ImportStaging\Models\StagingPayment;
+use ksfraser\FrontAccounting\ImportStaging\Services\ProcessingPipeline;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\ProcessingResult;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingLineItemDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingLogDAO;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingCustomer;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingTransaction;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingPayment;
 
 class ProcessingPipelineTest extends TestCase
 {

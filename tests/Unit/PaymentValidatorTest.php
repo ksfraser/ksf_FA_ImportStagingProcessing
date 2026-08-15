@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Tests\Unit;
+namespace ksfraser\FrontAccounting\ImportStaging\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Ksfraser\ImportStaging\Validators\PaymentValidator;
+use ksfraser\FrontAccounting\ImportStaging\Validators\PaymentValidator;
 
 class PaymentValidatorTest extends TestCase
 {

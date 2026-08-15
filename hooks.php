@@ -518,17 +518,17 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         $this->ensureRuntimeAutoload();
         $tablePrefix = defined('TB_PREF') ? TB_PREF : '0_';
         $db = new \ksf_ModulesDAO();
-        $customerDAO = new \Ksfraser\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
-        $transactionDAO = new \Ksfraser\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
-        $paymentDAO = new \Ksfraser\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
-        $paymentMatchDAO = new \Ksfraser\ImportStaging\DAO\StagingPaymentMatchDAO($tablePrefix, $db);
-        $lineItemDAO = new \Ksfraser\ImportStaging\DAO\StagingLineItemDAO($tablePrefix, $db);
-        $logDAO = new \Ksfraser\ImportStaging\DAO\StagingLogDAO($tablePrefix, $db);
-        $txnValidator = new \Ksfraser\ImportStaging\Validators\TransactionValidator();
-        $custValidator = new \Ksfraser\ImportStaging\Validators\CustomerValidator();
-        $paymentValidator = new \Ksfraser\ImportStaging\Validators\PaymentValidator();
-        $matchingService = new \Ksfraser\ImportStaging\Services\MatchingService();
-        return new \Ksfraser\ImportStaging\Services\StagingService(
+        $customerDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
+        $transactionDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
+        $paymentDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
+        $paymentMatchDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentMatchDAO($tablePrefix, $db);
+        $lineItemDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingLineItemDAO($tablePrefix, $db);
+        $logDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingLogDAO($tablePrefix, $db);
+        $txnValidator = new \ksfraser\FrontAccounting\ImportStaging\Validators\TransactionValidator();
+        $custValidator = new \ksfraser\FrontAccounting\ImportStaging\Validators\CustomerValidator();
+        $paymentValidator = new \ksfraser\FrontAccounting\ImportStaging\Validators\PaymentValidator();
+        $matchingService = new \ksfraser\FrontAccounting\ImportStaging\Services\MatchingService();
+        return new \ksfraser\FrontAccounting\ImportStaging\Services\StagingService(
             $customerDAO, $transactionDAO, $paymentDAO, $paymentMatchDAO,
             $lineItemDAO, $logDAO, $txnValidator, $custValidator, $paymentValidator, $matchingService
         );
@@ -539,12 +539,12 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         $this->ensureRuntimeAutoload();
         $tablePrefix = defined('TB_PREF') ? TB_PREF : '0_';
         $db = new \ksf_ModulesDAO();
-        $customerDAO = new \Ksfraser\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
-        $transactionDAO = new \Ksfraser\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
-        $paymentDAO = new \Ksfraser\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
-        $lineItemDAO = new \Ksfraser\ImportStaging\DAO\StagingLineItemDAO($tablePrefix, $db);
-        $logDAO = new \Ksfraser\ImportStaging\DAO\StagingLogDAO($tablePrefix, $db);
-        return new \Ksfraser\ImportStaging\Services\ProcessingPipeline(
+        $customerDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
+        $transactionDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
+        $paymentDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
+        $lineItemDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingLineItemDAO($tablePrefix, $db);
+        $logDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingLogDAO($tablePrefix, $db);
+        return new \ksfraser\FrontAccounting\ImportStaging\Services\ProcessingPipeline(
             $customerDAO, $transactionDAO, $paymentDAO, $lineItemDAO, $logDAO
         );
     }

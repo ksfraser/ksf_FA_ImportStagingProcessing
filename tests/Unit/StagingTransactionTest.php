@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Tests\Unit;
+namespace ksfraser\FrontAccounting\ImportStaging\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Ksfraser\ImportStaging\Models\StagingTransaction;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingTransaction;
 
 class StagingTransactionTest extends TestCase
 {

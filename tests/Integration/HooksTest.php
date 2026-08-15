@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Tests\Integration;
+namespace ksfraser\FrontAccounting\ImportStaging\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
 

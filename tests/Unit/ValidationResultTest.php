@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Tests\Unit;
+namespace ksfraser\FrontAccounting\ImportStaging\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Ksfraser\ImportStaging\Contracts\ValidationResult;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\ValidationResult;
 
 class ValidationResultTest extends TestCase
 {

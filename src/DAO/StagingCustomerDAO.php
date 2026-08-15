@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\DAO;
+namespace ksfraser\FrontAccounting\ImportStaging\DAO;
 
-use Ksfraser\ImportStaging\Models\StagingCustomer;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingCustomer;
 
 class StagingCustomerDAO
 {

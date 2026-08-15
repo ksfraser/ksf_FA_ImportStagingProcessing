@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Exceptions;
+namespace ksfraser\FrontAccounting\ImportStaging\Exceptions;
 
 class StagingNotFoundException extends StagingException
 {

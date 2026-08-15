@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Contracts;
+namespace ksfraser\FrontAccounting\ImportStaging\Contracts;
 
 class ProcessingResult
 {

@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Validators;
+namespace ksfraser\FrontAccounting\ImportStaging\Validators;
 
-use Ksfraser\ImportStaging\Contracts\ValidationServiceInterface;
-use Ksfraser\ImportStaging\Contracts\ValidationResult;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\ValidationServiceInterface;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\ValidationResult;
 
 class PaymentValidator implements ValidationServiceInterface
 {

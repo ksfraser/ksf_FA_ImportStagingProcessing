@@ -60,7 +60,7 @@ if (!class_exists('ksf_ModulesDAO')) {
 // -----------------------------------------------------------------------
 spl_autoload_register(function ($class) use ($baseDir) {
     $prefixes = [
-        'Ksfraser\\ImportStaging\\' => $baseDir . 'src/',
+        'ksfraser\\FrontAccounting\\ImportStaging\\' => $baseDir . 'src/',
     ];
     foreach ($prefixes as $prefix => $srcDir) {
         $len = strlen($prefix);

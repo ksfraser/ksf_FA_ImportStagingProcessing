@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Tests\Unit;
+namespace ksfraser\FrontAccounting\ImportStaging\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Ksfraser\ImportStaging\Models\StagingPayment;
-use Ksfraser\ImportStaging\Models\StagingPaymentMatch;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingPayment;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingPaymentMatch;
 
 class StagingPaymentTest extends TestCase
 {

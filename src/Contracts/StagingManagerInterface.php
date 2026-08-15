@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Contracts;
+namespace ksfraser\FrontAccounting\ImportStaging\Contracts;
 
-use Ksfraser\ImportStaging\Models\StagingCustomer;
-use Ksfraser\ImportStaging\Models\StagingTransaction;
-use Ksfraser\ImportStaging\Models\StagingPayment;
-use Ksfraser\ImportStaging\Models\StagingLineItem;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingCustomer;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingTransaction;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingPayment;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingLineItem;
 
 interface StagingManagerInterface
 {

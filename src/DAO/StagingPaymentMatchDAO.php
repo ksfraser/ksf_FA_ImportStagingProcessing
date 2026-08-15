@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\DAO;
+namespace ksfraser\FrontAccounting\ImportStaging\DAO;
 
-use Ksfraser\ImportStaging\Models\StagingPaymentMatch;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingPaymentMatch;
 
 class StagingPaymentMatchDAO
 {

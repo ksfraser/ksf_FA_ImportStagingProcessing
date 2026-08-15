@@ -42,12 +42,12 @@
     },
     "autoload": {
         "psr-4": {
-            "Ksfraser\\ImportStaging\\": "src/"
+            "ksfraser\\FrontAccounting\\ImportStaging\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Ksfraser\\ImportStaging\\Tests\\": "tests/"
+            "ksfraser\\FrontAccounting\\ImportStaging\\Tests\\": "tests/"
         }
     },
     "scripts": {

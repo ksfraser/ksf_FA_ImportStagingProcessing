@@ -1,27 +1,27 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Services;
+namespace ksfraser\FrontAccounting\ImportStaging\Services;
 
-use Ksfraser\ImportStaging\Contracts\StagingManagerInterface;
-use Ksfraser\ImportStaging\Contracts\ValidationResult;
-use Ksfraser\ImportStaging\Contracts\ProcessingResult;
-use Ksfraser\ImportStaging\Models\StagingCustomer;
-use Ksfraser\ImportStaging\Models\StagingTransaction;
-use Ksfraser\ImportStaging\Models\StagingPayment;
-use Ksfraser\ImportStaging\Models\StagingPaymentMatch;
-use Ksfraser\ImportStaging\Models\StagingLineItem;
-use Ksfraser\ImportStaging\DAO\StagingCustomerDAO;
-use Ksfraser\ImportStaging\DAO\StagingTransactionDAO;
-use Ksfraser\ImportStaging\DAO\StagingPaymentDAO;
-use Ksfraser\ImportStaging\DAO\StagingPaymentMatchDAO;
-use Ksfraser\ImportStaging\DAO\StagingLineItemDAO;
-use Ksfraser\ImportStaging\DAO\StagingLogDAO;
-use Ksfraser\ImportStaging\Exceptions\DuplicateTransactionException;
-use Ksfraser\ImportStaging\Exceptions\InvalidSourceException;
-use Ksfraser\ImportStaging\Validators\TransactionValidator;
-use Ksfraser\ImportStaging\Validators\CustomerValidator;
-use Ksfraser\ImportStaging\Validators\PaymentValidator;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\StagingManagerInterface;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\ValidationResult;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\ProcessingResult;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingCustomer;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingTransaction;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingPayment;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingPaymentMatch;
+use ksfraser\FrontAccounting\ImportStaging\Models\StagingLineItem;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentMatchDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingLineItemDAO;
+use ksfraser\FrontAccounting\ImportStaging\DAO\StagingLogDAO;
+use ksfraser\FrontAccounting\ImportStaging\Exceptions\DuplicateTransactionException;
+use ksfraser\FrontAccounting\ImportStaging\Exceptions\InvalidSourceException;
+use ksfraser\FrontAccounting\ImportStaging\Validators\TransactionValidator;
+use ksfraser\FrontAccounting\ImportStaging\Validators\CustomerValidator;
+use ksfraser\FrontAccounting\ImportStaging\Validators\PaymentValidator;
 
 class StagingService implements StagingManagerInterface
 {
@@ -69,7 +69,7 @@ class StagingService implements StagingManagerInterface
         $customer = StagingCustomer::fromArray(array_merge($data, ['source' => $source]));
         $validation = $this->customerValidator->validate($customer->toArray());
         if (!$validation->isSuccess()) {
-            throw \Ksfraser\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
+            throw \ksfraser\FrontAccounting\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
         }
         $id = $this->customerDAO->insert($customer);
         $this->logDAO->log('customer', $id, 'staged', $source);
@@ -82,7 +82,7 @@ class StagingService implements StagingManagerInterface
         $customer = StagingCustomer::fromArray(array_merge($data, ['source' => $source]));
         $validation = $this->customerValidator->validate($customer->toArray());
         if (!$validation->isSuccess()) {
-            throw \Ksfraser\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
+            throw \ksfraser\FrontAccounting\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
         }
         if ($customer->getSourceCustomerId()) {
             $existing = $this->customerDAO->findBySource($source, $customer->getSourceCustomerId());
@@ -110,7 +110,7 @@ class StagingService implements StagingManagerInterface
         $transaction = StagingTransaction::fromArray(array_merge($data, ['source' => $source]));
         $validation = $this->transactionValidator->validate($transaction->toArray());
         if (!$validation->isSuccess()) {
-            throw \Ksfraser\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
+            throw \ksfraser\FrontAccounting\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
         }
         $id = $this->transactionDAO->insert($transaction);
         $this->logDAO->log('transaction', $id, 'staged', $source);
@@ -123,7 +123,7 @@ class StagingService implements StagingManagerInterface
         $transaction = StagingTransaction::fromArray(array_merge($data, ['source' => $source]));
         $validation = $this->transactionValidator->validate($transaction->toArray());
         if (!$validation->isSuccess()) {
-            throw \Ksfraser\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
+            throw \ksfraser\FrontAccounting\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
         }
         if ($transaction->getSourceTransactionId()) {
             $existing = $this->transactionDAO->findBySource($source, $transaction->getSourceTransactionId());
@@ -214,7 +214,7 @@ class StagingService implements StagingManagerInterface
         if (isset($data['source_payment_id']) && $data['source_payment_id']) {
             $existing = $this->paymentDAO->findBySource($source, $data['source_payment_id']);
             if ($existing) {
-                throw \Ksfraser\ImportStaging\Exceptions\DuplicateTransactionException::forSource($source, $data['source_payment_id']);
+                throw \ksfraser\FrontAccounting\ImportStaging\Exceptions\DuplicateTransactionException::forSource($source, $data['source_payment_id']);
             }
         }
         $payment = StagingPayment::fromArray(array_merge($data, ['source' => $source]));
@@ -226,7 +226,7 @@ class StagingService implements StagingManagerInterface
         }
         $validation = $this->paymentValidator->validate($payment->toArray());
         if (!$validation->isSuccess()) {
-            throw \Ksfraser\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
+            throw \ksfraser\FrontAccounting\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
         }
         $id = $this->paymentDAO->insert($payment);
         $this->logDAO->log('payment', $id, 'staged', $source);
@@ -245,7 +245,7 @@ class StagingService implements StagingManagerInterface
         }
         $validation = $this->paymentValidator->validate($payment->toArray());
         if (!$validation->isSuccess()) {
-            throw \Ksfraser\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
+            throw \ksfraser\FrontAccounting\ImportStaging\Exceptions\StagingException::validationFailed($validation->getErrors());
         }
         if ($payment->getSourcePaymentId()) {
             $existing = $this->paymentDAO->findBySource($source, $payment->getSourcePaymentId());
@@ -390,7 +390,7 @@ class StagingService implements StagingManagerInterface
         $this->validateSource($source);
         $item = StagingLineItem::fromArray(array_merge($data, ['source' => $source]));
         if ($item->getStagingTransactionId() <= 0) {
-            throw \Ksfraser\ImportStaging\Exceptions\StagingException::validationFailed(
+            throw \ksfraser\FrontAccounting\ImportStaging\Exceptions\StagingException::validationFailed(
                 ['staging_transaction_id is required']
             );
         }

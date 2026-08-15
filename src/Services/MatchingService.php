@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Services;
+namespace ksfraser\FrontAccounting\ImportStaging\Services;
 
-use Ksfraser\ImportStaging\Contracts\MatchingServiceInterface;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\MatchingServiceInterface;
 
 class MatchingService implements MatchingServiceInterface
 {

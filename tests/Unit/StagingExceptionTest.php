@@ -1,15 +1,15 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Tests\Unit;
+namespace ksfraser\FrontAccounting\ImportStaging\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Ksfraser\ImportStaging\Exceptions\StagingException;
-use Ksfraser\ImportStaging\Exceptions\StagingNotFoundException;
-use Ksfraser\ImportStaging\Exceptions\InvalidSourceException;
-use Ksfraser\ImportStaging\Exceptions\DuplicateTransactionException;
-use Ksfraser\ImportStaging\Exceptions\MappingException;
-use Ksfraser\ImportStaging\Exceptions\ProcessingException;
+use ksfraser\FrontAccounting\ImportStaging\Exceptions\StagingException;
+use ksfraser\FrontAccounting\ImportStaging\Exceptions\StagingNotFoundException;
+use ksfraser\FrontAccounting\ImportStaging\Exceptions\InvalidSourceException;
+use ksfraser\FrontAccounting\ImportStaging\Exceptions\DuplicateTransactionException;
+use ksfraser\FrontAccounting\ImportStaging\Exceptions\MappingException;
+use ksfraser\FrontAccounting\ImportStaging\Exceptions\ProcessingException;
 
 class StagingExceptionTest extends TestCase
 {

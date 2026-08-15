@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
 
-namespace Ksfraser\ImportStaging\Tests\Unit;
+namespace ksfraser\FrontAccounting\ImportStaging\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Ksfraser\ImportStaging\Validators\TransactionValidator;
-use Ksfraser\ImportStaging\Validators\CustomerValidator;
+use ksfraser\FrontAccounting\ImportStaging\Validators\TransactionValidator;
+use ksfraser\FrontAccounting\ImportStaging\Validators\CustomerValidator;
 
 class ValidatorsTest extends TestCase
 {
