@@ -4,8 +4,9 @@ declare(strict_types=1);
 namespace ksfraser\FrontAccounting\ImportStaging\DAO;
 
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingPaymentMatch;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\PaymentMatchRepositoryInterface;
 
-class StagingPaymentMatchDAO
+class StagingPaymentMatchDAO implements PaymentMatchRepositoryInterface
 {
     private string $tablePrefix;
     private string $tableName;

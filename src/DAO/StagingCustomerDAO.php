@@ -4,8 +4,9 @@ declare(strict_types=1);
 namespace ksfraser\FrontAccounting\ImportStaging\DAO;
 
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingCustomer;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\CustomerRepositoryInterface;
 
-class StagingCustomerDAO
+class StagingCustomerDAO implements CustomerRepositoryInterface
 {
     private string $tablePrefix;
     private string $tableName;

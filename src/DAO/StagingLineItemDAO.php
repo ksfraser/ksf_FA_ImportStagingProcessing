@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace ksfraser\FrontAccounting\ImportStaging\DAO;
 
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingLineItem;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\LineItemRepositoryInterface;
 
 /**
  * DAO for staging_line_items table.
@@ -12,8 +13,9 @@ use ksfraser\FrontAccounting\ImportStaging\Models\StagingLineItem;
  * go into staging_line_item_attributes as name-value pairs.
  *
  * @requirement FR-06 Line Item Staging
+ * @UML Note: Class diagram in ProjectDocs/UML.md
  */
-class StagingLineItemDAO
+class StagingLineItemDAO implements LineItemRepositoryInterface
 {
     private string $tableName;
     private string $attrTableName;
@@ -72,36 +74,33 @@ class StagingLineItemDAO
 
     public function insert(StagingLineItem $item): int
     {
-        $sourceUpdatedAt = $item->getSourceUpdatedAt()
-            ? "'" . $item->getSourceUpdatedAt()->format('Y-m-d H:i:s') . "'"
-            : 'NULL';
-
+        $this->ensureTableExists();
         $sql = "INSERT INTO {$this->tableName}
                 (staging_transaction_id, source, source_id, source_updated_at,
                  line_number, sku, name, description, item_type,
                  quantity, unit_price, tax_amount, tax_percent,
                  discount_amount, discount_percent, total_amount, currency, status)
-                VALUES (
-                    {$item->getStagingTransactionId()},
-                    '" . $this->db->escape($item->getSource()) . "',
-                    " . ($item->getSourceId() ? "'" . $this->db->escape($item->getSourceId()) . "'" : 'NULL') . ",
-                    $sourceUpdatedAt,
-                    {$item->getLineNumber()},
-                    " . ($item->getSku() ? "'" . $this->db->escape($item->getSku()) . "'" : 'NULL') . ",
-                    '" . $this->db->escape($item->getName()) . "',
-                    " . ($item->getDescription() ? "'" . $this->db->escape($item->getDescription()) . "'" : 'NULL') . ",
-                    " . ($item->getItemType() ? "'" . $this->db->escape($item->getItemType()) . "'" : 'NULL') . ",
-                    {$item->getQuantity()},
-                    {$item->getUnitPrice()},
-                    {$item->getTaxAmount()},
-                    {$item->getTaxPercent()},
-                    {$item->getDiscountAmount()},
-                    {$item->getDiscountPercent()},
-                    {$item->getTotalAmount()},
-                    '" . $this->db->escape($item->getCurrency()) . "',
-                    '" . $this->db->escape($item->getStatus()) . "'
-                )";
-        $this->db->query($sql);
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $this->db->query($sql, [
+            $item->getStagingTransactionId(),
+            $item->getSource(),
+            $item->getSourceId(),
+            $item->getSourceUpdatedAt() ? $item->getSourceUpdatedAt()->format('Y-m-d H:i:s') : null,
+            $item->getLineNumber(),
+            $item->getSku(),
+            $item->getName(),
+            $item->getDescription(),
+            $item->getItemType(),
+            $item->getQuantity(),
+            $item->getUnitPrice(),
+            $item->getTaxAmount(),
+            $item->getTaxPercent(),
+            $item->getDiscountAmount(),
+            $item->getDiscountPercent(),
+            $item->getTotalAmount(),
+            $item->getCurrency(),
+            $item->getStatus(),
+        ]);
         $id = (int)db_insert_id();
 
         $this->insertAttributes($id, $item->getAttributes());
@@ -112,9 +111,9 @@ class StagingLineItemDAO
     public function findByTransactionId(int $transactionId): array
     {
         $sql = "SELECT * FROM {$this->tableName}
-                WHERE staging_transaction_id = $transactionId
+                WHERE staging_transaction_id = ?
                 ORDER BY line_number ASC";
-        $result = $this->db->query($sql);
+        $result = $this->db->query($sql, [$transactionId]);
         if ($result === null) {
             return [];
         }
@@ -130,13 +129,15 @@ class StagingLineItemDAO
 
     public function findBySource(string $source, ?string $sourceId = null): array
     {
-        $conditions = ["source = '" . $this->db->escape($source) . "'"];
+        $conditions = ["source = ?"];
+        $params = [$source];
         if ($sourceId !== null) {
-            $conditions[] = "source_id = '" . $this->db->escape($sourceId) . "'";
+            $conditions[] = "source_id = ?";
+            $params[] = $sourceId;
         }
         $where = implode(' AND ', $conditions);
-        $sql = "SELECT * FROM {$this->tableName} WHERE $where ORDER BY line_number ASC";
-        $result = $this->db->query($sql);
+        $sql = "SELECT * FROM {$this->tableName} WHERE {$where} ORDER BY line_number ASC";
+        $result = $this->db->query($sql, $params);
         if ($result === null) {
             return [];
         }
@@ -152,13 +153,15 @@ class StagingLineItemDAO
 
     public function findByStatus(string $status, ?string $source = null): array
     {
-        $conditions = ["status = '" . $this->db->escape($status) . "'"];
+        $conditions = ["status = ?"];
+        $params = [$status];
         if ($source !== null) {
-            $conditions[] = "source = '" . $this->db->escape($source) . "'";
+            $conditions[] = "source = ?";
+            $params[] = $source;
         }
         $where = implode(' AND ', $conditions);
-        $sql = "SELECT * FROM {$this->tableName} WHERE $where ORDER BY id ASC";
-        $result = $this->db->query($sql);
+        $sql = "SELECT * FROM {$this->tableName} WHERE {$where} ORDER BY id ASC";
+        $result = $this->db->query($sql, $params);
         if ($result === null) {
             return [];
         }
@@ -175,45 +178,61 @@ class StagingLineItemDAO
     public function updateStatus(int $id, string $status, ?string $error = null): void
     {
         $sql = "UPDATE {$this->tableName}
-                SET status = '" . $this->db->escape($status) . "'
-                WHERE id = $id";
-        $this->db->query($sql);
+                SET status = ?
+                WHERE id = ?";
+        $this->db->query($sql, [$status, $id]);
     }
 
     public function updateBySource(StagingLineItem $item): void
     {
         $sql = "UPDATE {$this->tableName}
-                SET line_number = {$item->getLineNumber()},
-                    sku = " . ($item->getSku() ? "'" . $this->db->escape($item->getSku()) . "'" : 'NULL') . ",
-                    name = '" . $this->db->escape($item->getName()) . "',
-                    description = " . ($item->getDescription() ? "'" . $this->db->escape($item->getDescription()) . "'" : 'NULL') . ",
-                    item_type = " . ($item->getItemType() ? "'" . $this->db->escape($item->getItemType()) . "'" : 'NULL') . ",
-                    quantity = {$item->getQuantity()},
-                    unit_price = {$item->getUnitPrice()},
-                    tax_amount = {$item->getTaxAmount()},
-                    tax_percent = {$item->getTaxPercent()},
-                    discount_amount = {$item->getDiscountAmount()},
-                    discount_percent = {$item->getDiscountPercent()},
-                    total_amount = {$item->getTotalAmount()},
-                    currency = '" . $this->db->escape($item->getCurrency()) . "',
+                SET line_number = ?,
+                    sku = ?,
+                    name = ?,
+                    description = ?,
+                    item_type = ?,
+                    quantity = ?,
+                    unit_price = ?,
+                    tax_amount = ?,
+                    tax_percent = ?,
+                    discount_amount = ?,
+                    discount_percent = ?,
+                    total_amount = ?,
+                    currency = ?,
                     updated_at = NOW()
-                WHERE source = '" . $this->db->escape($item->getSource()) . "'
-                  AND source_id = '" . $this->db->escape($item->getSourceId()) . "'";
-        $this->db->query($sql);
+                WHERE source = ?
+                  AND source_id = ?";
+        $this->db->query($sql, [
+            $item->getLineNumber(),
+            $item->getSku(),
+            $item->getName(),
+            $item->getDescription(),
+            $item->getItemType(),
+            $item->getQuantity(),
+            $item->getUnitPrice(),
+            $item->getTaxAmount(),
+            $item->getTaxPercent(),
+            $item->getDiscountAmount(),
+            $item->getDiscountPercent(),
+            $item->getTotalAmount(),
+            $item->getCurrency(),
+            $item->getSource(),
+            $item->getSourceId(),
+        ]);
     }
 
     public function deleteByTransactionId(int $transactionId): void
     {
-        $subSql = "SELECT id FROM {$this->tableName} WHERE staging_transaction_id = $transactionId";
-        $result = $this->db->query($subSql);
+        $subSql = "SELECT id FROM {$this->tableName} WHERE staging_transaction_id = ?";
+        $result = $this->db->query($subSql, [$transactionId]);
         if ($result !== null) {
             $rows = $result->fetch_all();
             foreach ($rows as $row) {
                 $this->deleteAttributes((int)$row['id']);
             }
         }
-        $sql = "DELETE FROM {$this->tableName} WHERE staging_transaction_id = $transactionId";
-        $this->db->query($sql);
+        $sql = "DELETE FROM {$this->tableName} WHERE staging_transaction_id = ?";
+        $this->db->query($sql, [$transactionId]);
     }
 
     private function insertAttributes(int $lineItemId, array $attributes): void
@@ -221,20 +240,16 @@ class StagingLineItemDAO
         foreach ($attributes as $key => $value) {
             $sql = "INSERT INTO {$this->attrTableName}
                     (line_item_id, attribute_key, attribute_value)
-                    VALUES (
-                        $lineItemId,
-                        '" . $this->db->escape($key) . "',
-                        '" . $this->db->escape((string)$value) . "'
-                    )";
-            $this->db->query($sql);
+                    VALUES (?, ?, ?)";
+            $this->db->query($sql, [$lineItemId, $key, (string)$value]);
         }
     }
 
     private function getAttributes(int $lineItemId): array
     {
         $sql = "SELECT attribute_key, attribute_value FROM {$this->attrTableName}
-                WHERE line_item_id = $lineItemId";
-        $result = $this->db->query($sql);
+                WHERE line_item_id = ?";
+        $result = $this->db->query($sql, [$lineItemId]);
         if ($result === null) {
             return [];
         }
@@ -248,8 +263,8 @@ class StagingLineItemDAO
 
     private function deleteAttributes(int $lineItemId): void
     {
-        $sql = "DELETE FROM {$this->attrTableName} WHERE line_item_id = $lineItemId";
-        $this->db->query($sql);
+        $sql = "DELETE FROM {$this->attrTableName} WHERE line_item_id = ?";
+        $this->db->query($sql, [$lineItemId]);
     }
 
     private function rowToItem(array $row): StagingLineItem

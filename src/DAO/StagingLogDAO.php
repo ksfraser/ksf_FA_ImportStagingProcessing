@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace ksfraser\FrontAccounting\ImportStaging\DAO;
 
-class StagingLogDAO
+use ksfraser\FrontAccounting\ImportStaging\Contracts\AuditLogRepositoryInterface;
+
+class StagingLogDAO implements AuditLogRepositoryInterface
 {
     private string $tablePrefix;
     private string $tableName;

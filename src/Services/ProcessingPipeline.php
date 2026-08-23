@@ -5,11 +5,11 @@ namespace ksfraser\FrontAccounting\ImportStaging\Services;
 
 use ksfraser\FrontAccounting\ImportStaging\Contracts\ProcessingResult;
 use ksfraser\FrontAccounting\ImportStaging\Contracts\ProcessorInterface;
-use ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO;
-use ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO;
-use ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO;
-use ksfraser\FrontAccounting\ImportStaging\DAO\StagingLineItemDAO;
-use ksfraser\FrontAccounting\ImportStaging\DAO\StagingLogDAO;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\CustomerRepositoryInterface;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\TransactionRepositoryInterface;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\PaymentRepositoryInterface;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\LineItemRepositoryInterface;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\AuditLogRepositoryInterface;
 
 /**
  * Orchestrates the processing pipeline: takes matched/approved staging records
@@ -20,19 +20,19 @@ use ksfraser\FrontAccounting\ImportStaging\DAO\StagingLogDAO;
  */
 class ProcessingPipeline implements ProcessorInterface
 {
-    private StagingCustomerDAO $customerDAO;
-    private StagingTransactionDAO $transactionDAO;
-    private StagingPaymentDAO $paymentDAO;
-    private StagingLineItemDAO $lineItemDAO;
-    private StagingLogDAO $logDAO;
+    private CustomerRepositoryInterface $customerDAO;
+    private TransactionRepositoryInterface $transactionDAO;
+    private PaymentRepositoryInterface $paymentDAO;
+    private LineItemRepositoryInterface $lineItemDAO;
+    private AuditLogRepositoryInterface $logDAO;
     private array $processedIds;
 
     public function __construct(
-        StagingCustomerDAO $customerDAO,
-        StagingTransactionDAO $transactionDAO,
-        StagingPaymentDAO $paymentDAO,
-        StagingLineItemDAO $lineItemDAO,
-        StagingLogDAO $logDAO
+        CustomerRepositoryInterface $customerDAO,
+        TransactionRepositoryInterface $transactionDAO,
+        PaymentRepositoryInterface $paymentDAO,
+        LineItemRepositoryInterface $lineItemDAO,
+        AuditLogRepositoryInterface $logDAO
     ) {
         $this->customerDAO = $customerDAO;
         $this->transactionDAO = $transactionDAO;

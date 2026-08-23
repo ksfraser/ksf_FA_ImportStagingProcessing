@@ -11,12 +11,12 @@ use ksfraser\FrontAccounting\ImportStaging\Models\StagingTransaction;
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingPayment;
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingPaymentMatch;
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingLineItem;
-use ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO;
-use ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO;
-use ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO;
-use ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentMatchDAO;
-use ksfraser\FrontAccounting\ImportStaging\DAO\StagingLineItemDAO;
-use ksfraser\FrontAccounting\ImportStaging\DAO\StagingLogDAO;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\CustomerRepositoryInterface;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\TransactionRepositoryInterface;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\PaymentRepositoryInterface;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\PaymentMatchRepositoryInterface;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\LineItemRepositoryInterface;
+use ksfraser\FrontAccounting\ImportStaging\Contracts\AuditLogRepositoryInterface;
 use ksfraser\FrontAccounting\ImportStaging\Exceptions\DuplicateTransactionException;
 use ksfraser\FrontAccounting\ImportStaging\Exceptions\InvalidSourceException;
 use ksfraser\FrontAccounting\ImportStaging\Validators\TransactionValidator;
@@ -25,12 +25,12 @@ use ksfraser\FrontAccounting\ImportStaging\Validators\PaymentValidator;
 
 class StagingService implements StagingManagerInterface
 {
-    private StagingCustomerDAO $customerDAO;
-    private StagingTransactionDAO $transactionDAO;
-    private StagingPaymentDAO $paymentDAO;
-    private StagingPaymentMatchDAO $paymentMatchDAO;
-    private StagingLineItemDAO $lineItemDAO;
-    private StagingLogDAO $logDAO;
+    private CustomerRepositoryInterface $customerDAO;
+    private TransactionRepositoryInterface $transactionDAO;
+    private PaymentRepositoryInterface $paymentDAO;
+    private PaymentMatchRepositoryInterface $paymentMatchDAO;
+    private LineItemRepositoryInterface $lineItemDAO;
+    private AuditLogRepositoryInterface $logDAO;
     private TransactionValidator $transactionValidator;
     private CustomerValidator $customerValidator;
     private PaymentValidator $paymentValidator;
@@ -38,12 +38,12 @@ class StagingService implements StagingManagerInterface
     private array $validSources;
 
     public function __construct(
-        StagingCustomerDAO $customerDAO,
-        StagingTransactionDAO $transactionDAO,
-        StagingPaymentDAO $paymentDAO,
-        StagingPaymentMatchDAO $paymentMatchDAO,
-        StagingLineItemDAO $lineItemDAO,
-        StagingLogDAO $logDAO,
+        CustomerRepositoryInterface $customerDAO,
+        TransactionRepositoryInterface $transactionDAO,
+        PaymentRepositoryInterface $paymentDAO,
+        PaymentMatchRepositoryInterface $paymentMatchDAO,
+        LineItemRepositoryInterface $lineItemDAO,
+        AuditLogRepositoryInterface $logDAO,
         TransactionValidator $transactionValidator,
         CustomerValidator $customerValidator,
         PaymentValidator $paymentValidator,
