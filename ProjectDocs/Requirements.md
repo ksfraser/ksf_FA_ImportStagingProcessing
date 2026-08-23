@@ -116,6 +116,24 @@ FrontAccounting (FA) imports data from multiple third-party sources (WooCommerce
 | FR-05.03 | System shall provide error resolution interface | |
 | FR-05.04 | System shall log errors with context for debugging | |
 
+### FR-07: Source-Agnostic Date Handling
+| ID | Requirement | Notes |
+|----|-------------|-------|
+| FR-07.01 | System shall use DateConverterInterface for all date format conversions | SRP — date logic in one injectable service |
+| FR-07.02 | Source modules shall inject DateConverterInterface, never call FA date globals directly | DI pattern, testability |
+| FR-07.03 | DateConverterInterface shall convert between user display format and ISO Y-m-d | User may configure MM/DD/YYYY, DD/MM/YYYY, or YYYY-MM-DD |
+| FR-07.04 | DateConverterInterface shall be provided by ksf_FA_Common platform module | Shared contract, all consuming modules depend on it |
+| FR-07.05 | FADateConverter shall wrap FA's date2sql()/sql2date()/Today() behind the interface | FA-specific implementation |
+| FR-07.06 | StaticDateConverter shall provide a testable implementation without FA dependencies | Unit testing, CLI tools |
+| FR-07.07 | Source modules shall depend on ksf_FA_Common for DateConverterInterface | Composer path repository dependency |
+
+### FR-08: Shared Platform Dependencies
+| ID | Requirement | Notes |
+|----|-------------|-------|
+| FR-08.01 | All KSF modules shall depend on ksf_FA_Common for shared contracts | DateConverter, ContactType, etc. |
+| FR-08.02 | ksf_FA_Common shall be activated before all other modules | Platform foundation |
+| FR-08.03 | Module composer.json shall declare path repository dependency on ksf_FA_Common | `"type": "path", "url": "../ksf_FA_Common"` |
+
 ---
 
 ## 4. Non-Functional Requirements

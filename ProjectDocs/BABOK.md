@@ -73,6 +73,8 @@ Using MoSCoW:
 - FR-01.01 through FR-01.07: Unified staging tables with backward compat
 - FR-02.01 through FR-02.06: Processing pipeline with scoring matching
 - FR-03.01 through FR-03.02: Standard hooks API
+- FR-07.01 through FR-07.07: Source-agnostic date handling via DI
+- FR-08.01 through FR-08.03: Shared platform dependencies
 - NFR-01 through NFR-08: Quality attributes
 
 **Should Have**
@@ -114,6 +116,7 @@ Using MoSCoW:
 | Data loss during schema migration | Low | Critical | ALTER TABLE only, never DROP/recreate |
 | Breaking existing import flows | Medium | High | Full backward-compat testing |
 | PHP version constraints | Low | Medium | Target PHP 7.3+, avoid 8+ features |
+| Date format mismatch across sources | High | High | DateConverterInterface with DI — all sources use same conversion service |
 
 ### Task: Define Change Strategy
 | Phase | Scope | Timeline |
