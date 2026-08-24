@@ -134,6 +134,24 @@ FrontAccounting (FA) imports data from multiple third-party sources (WooCommerce
 | FR-08.02 | ksf_FA_Common shall be activated before all other modules | Platform foundation |
 | FR-08.03 | Module composer.json shall declare path repository dependency on ksf_FA_Common | `"type": "path", "url": "../ksf_FA_Common"` |
 
+### FR-09: Repository Interface Contracts (ISU → Source Modules)
+
+**Description**: ISU defines repository interfaces that source modules implement
+as adapters. This enables Dependency Inversion — ISU never imports source-specific
+code, and source modules own their data format.
+
+| ID | Requirement | Notes |
+|----|-------------|-------|
+| FR-09.01 | ISU shall define `TransactionRepositoryInterface` in `src/Contracts/` | insert, findById, findBySourceAndId, findByStatus, updateStatus, updateFaReference, countByStatus |
+| FR-09.02 | ISU shall define `CustomerRepositoryInterface` in `src/Contracts/` | insert, findById, findByEmail, updateStatus |
+| FR-09.03 | ISU shall define `PaymentRepositoryInterface` in `src/Contracts/` | insert, findByTransactionId, getQueueForReconciliation |
+| FR-09.04 | ISU shall define `LineItemRepositoryInterface` in `src/Contracts/` | insert, findByTransactionId, deleteByTransactionId |
+| FR-09.05 | ISU shall define `AuditLogRepositoryInterface` in `src/Contracts/` | log, findByRecord, getRecent |
+| FR-09.06 | Source modules shall implement these interfaces as adapter classes | Square: `src/Staging/*RepositoryAdapter.php` |
+| FR-09.07 | Source modules shall map ISU model fields to/from their proprietary schema | Adapters handle field translation |
+| FR-09.08 | Source modules shall use FA's `db_*` functions in adapter implementations | PHP 7.3 compat, no PDO |
+| FR-09.09 | Source modules shall preserve Square-specific fields in `raw_json` / `attributes` EAV | ISU models don't know Square fields |
+
 ---
 
 ## 4. Non-Functional Requirements

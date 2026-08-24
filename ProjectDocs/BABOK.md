@@ -125,6 +125,27 @@ Using MoSCoW:
 | Phase 2: Core Services | DAO, Services, Validators, ProcessingPipeline | Next |
 | Phase 3: Integration | hooks.php, composer.json, tests | Next |
 | Phase 4: Adoption | Migrate source modules to use unified staging | After v1.0 |
+| Phase 5: Cross-Module Adapters | Source modules implement ISU repository interfaces | v2.4.5+ |
+
+### Task: Cross-Module Adapter Architecture
+
+ISU defines repository interfaces in `src/Contracts/`. Source modules (Square,
+WooCommerce, etc.) implement these interfaces as adapters, enabling ISU's
+StagingService to process their data through the standard contract.
+
+| Adapter | Source Module | Interface | Status |
+|---------|--------------|-----------|--------|
+| TransactionRepositoryAdapter | ksf_FA_Square | TransactionRepositoryInterface | ✅ |
+| CustomerRepositoryAdapter | ksf_FA_Square | CustomerRepositoryInterface | ✅ |
+| PaymentRepositoryAdapter | ksf_FA_Square | PaymentRepositoryInterface | ✅ |
+| LineItemRepositoryAdapter | ksf_FA_Square | LineItemRepositoryInterface | ✅ |
+| AuditLogRepositoryAdapter | ksf_FA_Square | AuditLogRepositoryInterface | ✅ |
+
+**Benefits:**
+- ISU never imports source-specific code (Dependency Inversion)
+- Source modules own their data format; adapters bridge the gap
+- New sources just implement the interfaces — no ISU changes needed
+- WooCommerce uses hook-based delegation instead (different pattern)
 
 ---
 

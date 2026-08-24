@@ -358,3 +358,131 @@ Admin/System        MatchingService        ProcessingPipeline     StagingTransac
 │ created_at / updated_at              │
 └──────────────────────────────────────┘
 ```
+
+---
+
+## 6. Cross-Module Adapter Architecture
+
+Source modules implement ISU's repository interfaces as adapters, enabling
+polymorphic access to staging data without ISU importing source-specific code.
+
+### Class Diagram: Repository Contracts (ISU side)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  ISU Module — src/Contracts/                              │
+│                                                          │
+│  «interface» TransactionRepositoryInterface              │
+│  ├─────────────────────────────────────────────────────│
+│  │ + insert(StagingTransaction $txn): int               │
+│  │ + findById(int $id): ?StagingTransaction             │
+│  │ + findBySourceAndId(string $src, string $extId): ?T  │
+│  │ + findByStatus(string $status): StagingTransaction[] │
+│  │ + updateStatus(int $id, string $status): bool        │
+│  │ + updateFaReference(int $id, int $faRef): bool       │
+│  │ + countByStatus(): array                             │
+│  └──────────────────────────────────────────────────────┘
+│                                                          │
+│  «interface» CustomerRepositoryInterface                 │
+│  ├─────────────────────────────────────────────────────│
+│  │ + insert(StagingCustomer $cust): int                 │
+│  │ + findById(int $id): ?StagingCustomer                │
+│  │ + findByEmail(string $email): ?StagingCustomer       │
+│  │ + updateStatus(int $id, string $status): bool        │
+│  └──────────────────────────────────────────────────────┘
+│                                                          │
+│  «interface» PaymentRepositoryInterface                  │
+│  ├─────────────────────────────────────────────────────│
+│  │ + insert(StagingPayment $pay): int                   │
+│  │ + findByTransactionId(int $txnId): StagingPayment[]  │
+│  │ + getQueueForReconciliation(): StagingPayment[]      │
+│  └──────────────────────────────────────────────────────┘
+│                                                          │
+│  «interface» LineItemRepositoryInterface                 │
+│  ├─────────────────────────────────────────────────────│
+│  │ + insert(StagingLineItem $item): int                 │
+│  │ + findByTransactionId(int $txnId): StagingLineItem[] │
+│  │ + deleteByTransactionId(int $txnId): bool            │
+│  └──────────────────────────────────────────────────────┘
+│                                                          │
+│  «interface» AuditLogRepositoryInterface                 │
+│  ├─────────────────────────────────────────────────────│
+│  │ + log(string $recordType, int $recordId,             │
+│  │       string $action, string $details): void         │
+│  │ + findByRecord(string $type, int $id): AuditLogEntry[]│
+│  │ + getRecent(int $limit): AuditLogEntry[]              │
+│  └──────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────┘
+                            │
+                            │ implemented by
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│  Source Modules (each provides adapter implementations)  │
+│                                                          │
+│  ksf_FA_Square ──────> src/Staging/                      │
+│    TransactionRepositoryAdapter                          │
+│    CustomerRepositoryAdapter                             │
+│    PaymentRepositoryAdapter                              │
+│    LineItemRepositoryAdapter                             │
+│    AuditLogRepositoryAdapter                             │
+│                                                          │
+│  ksf_generate ───────> hook-based delegation              │
+│    (WooCommerce — no adapters needed)                    │
+│                                                          │
+│  FA_ImportSquareUp > hooks or adapters (future)          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Sequence Diagram: Adapter Integration Flow
+
+```
+  Source Module (Square)         ISU StagingService          FA DB
+       │                              │                        │
+       │  adapter->insert($txn)       │                        │
+       │─────────────────────────────>│                        │
+       │                              │  toSquareRow()         │
+       │                              │  (map ISU→Square cols) │
+       │                              │  db_escape(values)     │
+       │                              │───────────────────────>│
+       │                              │  db_query(INSERT)      │
+       │                              │───────────────────────>│
+       │                              │  db_insert_id()        │
+       │                              │<───────────────────────│
+       │  return int                  │                        │
+       │<─────────────────────────────│                        │
+       │                              │                        │
+       │  adapter->findById($id)      │                        │
+       │─────────────────────────────>│                        │
+       │                              │  db_query(SELECT)      │
+       │                              │───────────────────────>│
+       │                              │  db_fetch_assoc()      │
+       │                              │<───────────────────────│
+       │                              │  toStagingTransaction()│
+       │  return StagingTxn           │                        │
+       │<─────────────────────────────│                        │
+```
+
+### Data Flow: Multi-Source Import via Adapters
+
+```
+┌──────────────┐     ┌──────────────────────┐     ┌───────────────────┐
+│ Square API   │────>│ TransactionRepo-     │────>│ 0_staging_        │
+│              │     │ sitoryAdapter        │     │   transactions    │
+│              │────>│ CustomerRepo-        │────>│ 0_staging_        │
+│              │     │ sitoryAdapter        │     │   customers       │
+│              │────>│ PaymentRepository-   │────>│ 0_staging_        │
+│              │     │ Adapter              │     │   payments        │
+│              │────>│ LineItemRepository-  │────>│ 0_staging_        │
+│              │     │ Adapter              │     │   line_items      │
+│              │────>│ AuditLogRepository-  │────>│ 0_staging_log     │
+│              │     │ Adapter              │     │                   │
+└──────────────┘     └──────────────────────┘     └───────────────────┘
+                            ▲
+                            │ implements
+                            │
+┌──────────────┐     ┌──────┴────────────────┐
+│ WooCommerce  │────>│ hook_invoke (no        │
+│ (ksf_gen)    │     │ adapters — delegates   │
+│              │     │ via hooks)              │
+└──────────────┘     └───────────────────────┘
+```

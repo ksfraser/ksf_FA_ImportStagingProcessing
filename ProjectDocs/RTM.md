@@ -57,6 +57,28 @@
 
 ---
 
+## Repository Interface Contracts
+
+| Req ID | Requirement Summary | Code File | Implementing Module | Status |
+|--------|--------------------|-----------|---------------------|--------|
+| **FR-09.01** | TransactionRepositoryInterface | `src/Contracts/TransactionRepositoryInterface.php` | ksf_FA_Square | ✅ |
+| **FR-09.02** | CustomerRepositoryInterface | `src/Contracts/CustomerRepositoryInterface.php` | ksf_FA_Square | ✅ |
+| **FR-09.03** | PaymentRepositoryInterface | `src/Contracts/PaymentRepositoryInterface.php` | ksf_FA_Square | ✅ |
+| **FR-09.04** | LineItemRepositoryInterface | `src/Contracts/LineItemRepositoryInterface.php` | ksf_FA_Square | ✅ |
+| **FR-09.05** | AuditLogRepositoryInterface | `src/Contracts/AuditLogRepositoryInterface.php` | ksf_FA_Square | ✅ |
+
+### Adapter Implementations (Square Module)
+
+| Interface | Adapter | Source Module | Unit Tests | Integration Tests |
+|-----------|---------|---------------|-----------|-------------------|
+| TransactionRepositoryInterface | `TransactionRepositoryAdapter` | ksf_FA_Square | `tests/Unit/RepositoryAdapterTest.php` | `tests/Integration/RepositoryAdapterIntegrationTest.php` |
+| CustomerRepositoryInterface | `CustomerRepositoryAdapter` | ksf_FA_Square | `tests/Unit/RepositoryAdapterTest.php` | `tests/Integration/RepositoryAdapterIntegrationTest.php` |
+| PaymentRepositoryInterface | `PaymentRepositoryAdapter` | ksf_FA_Square | `tests/Unit/RepositoryAdapterTest.php` | `tests/Integration/RepositoryAdapterIntegrationTest.php` |
+| LineItemRepositoryInterface | `LineItemRepositoryAdapter` | ksf_FA_Square | `tests/Unit/RepositoryAdapterTest.php` | `tests/Integration/RepositoryAdapterIntegrationTest.php` |
+| AuditLogRepositoryInterface | `AuditLogRepositoryAdapter` | ksf_FA_Square | `tests/Unit/RepositoryAdapterTest.php` | `tests/Integration/RepositoryAdapterIntegrationTest.php` |
+
+---
+
 ## Use Case Index
 
 | UC ID | Name | Trigger | Primary Actor |
