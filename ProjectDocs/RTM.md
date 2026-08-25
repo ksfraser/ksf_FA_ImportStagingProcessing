@@ -57,25 +57,33 @@
 
 ---
 
-## Repository Interface Contracts
+## Hooks+DTO Interface
 
-| Req ID | Requirement Summary | Code File | Implementing Module | Status |
-|--------|--------------------|-----------|---------------------|--------|
-| **FR-09.01** | TransactionRepositoryInterface | `src/Contracts/TransactionRepositoryInterface.php` | ksf_FA_Square | ✅ |
-| **FR-09.02** | CustomerRepositoryInterface | `src/Contracts/CustomerRepositoryInterface.php` | ksf_FA_Square | ✅ |
-| **FR-09.03** | PaymentRepositoryInterface | `src/Contracts/PaymentRepositoryInterface.php` | ksf_FA_Square | ✅ |
-| **FR-09.04** | LineItemRepositoryInterface | `src/Contracts/LineItemRepositoryInterface.php` | ksf_FA_Square | ✅ |
-| **FR-09.05** | AuditLogRepositoryInterface | `src/Contracts/AuditLogRepositoryInterface.php` | ksf_FA_Square | ✅ |
+| Req ID | Requirement Summary | Code File | Consuming Modules | Status |
+|--------|--------------------|-----------|-------------------|--------|
+| **FR-09.01** | stageEntity hook | `hooks.php` | Square, Woo, PayPal, Stripe | Planned |
+| **FR-09.02** | stagingExists hook | `hooks.php` | Square, Woo, Bank Import | Planned |
+| **FR-09.03** | processQueue hook | `hooks.php` | Square, Woo, Admin | Planned |
+| **FR-09.04** | Version handling via $dto->getVersion() | `src/Services/StagingService.php` | All | Planned |
+| **FR-09.05** | Type-specific processing via instanceof | `src/Services/StagingService.php` | All | Planned |
+| **FR-09.06** | Staging-only responses | `hooks.php` | All | Planned |
+| **FR-09.07** | Duplicate detection (source+sourceId) | `src/DAO/*` | All | Planned |
+| **FR-09.08** | External modules depend on ksfraser/staging-dto | `composer.json` | Square, Woo, PayPal, Stripe | Planned |
+| **FR-09.09** | External modules call hooks, not DB | Architecture | All | Planned |
+| **FR-09.10** | Bank import cash flow coordination | `hooks.php` | Bank Import | Planned |
 
-### Adapter Implementations (Square Module)
+### Deprecated: Repository Adapter Pattern
 
-| Interface | Adapter | Source Module | Unit Tests | Integration Tests |
-|-----------|---------|---------------|-----------|-------------------|
-| TransactionRepositoryInterface | `TransactionRepositoryAdapter` | ksf_FA_Square | `tests/Unit/RepositoryAdapterTest.php` | `tests/Integration/RepositoryAdapterIntegrationTest.php` |
-| CustomerRepositoryInterface | `CustomerRepositoryAdapter` | ksf_FA_Square | `tests/Unit/RepositoryAdapterTest.php` | `tests/Integration/RepositoryAdapterIntegrationTest.php` |
-| PaymentRepositoryInterface | `PaymentRepositoryAdapter` | ksf_FA_Square | `tests/Unit/RepositoryAdapterTest.php` | `tests/Integration/RepositoryAdapterIntegrationTest.php` |
-| LineItemRepositoryInterface | `LineItemRepositoryAdapter` | ksf_FA_Square | `tests/Unit/RepositoryAdapterTest.php` | `tests/Integration/RepositoryAdapterIntegrationTest.php` |
-| AuditLogRepositoryInterface | `AuditLogRepositoryAdapter` | ksf_FA_Square | `tests/Unit/RepositoryAdapterTest.php` | `tests/Integration/RepositoryAdapterIntegrationTest.php` |
+| Req ID | Requirement Summary | Code File | Status |
+|--------|--------------------|-----------|--------|
+| **FR-09.01** (old) | TransactionRepositoryInterface | `src/Contracts/TransactionRepositoryInterface.php` | ⚠️ Deprecated |
+| **FR-09.02** (old) | CustomerRepositoryInterface | `src/Contracts/CustomerRepositoryInterface.php` | ⚠️ Deprecated |
+| **FR-09.03** (old) | PaymentRepositoryInterface | `src/Contracts/PaymentRepositoryInterface.php` | ⚠️ Deprecated |
+| **FR-09.04** (old) | LineItemRepositoryInterface | `src/Contracts/LineItemRepositoryInterface.php` | ⚠️ Deprecated |
+| **FR-09.05** (old) | AuditLogRepositoryInterface | `src/Contracts/AuditLogRepositoryInterface.php` | ⚠️ Deprecated |
+
+**Note:** These interfaces are deprecated. Source modules should use hooks+DTO pattern instead.
+Adapter classes in ksf_FA_Square are marked `@deprecated`.
 
 ---
 

@@ -134,23 +134,29 @@ FrontAccounting (FA) imports data from multiple third-party sources (WooCommerce
 | FR-08.02 | ksf_FA_Common shall be activated before all other modules | Platform foundation |
 | FR-08.03 | Module composer.json shall declare path repository dependency on ksf_FA_Common | `"type": "path", "url": "../ksf_FA_Common"` |
 
-### FR-09: Repository Interface Contracts (ISU → Source Modules)
+### FR-09: Hooks+DTO Interface (ISU ↔ External Modules)
 
-**Description**: ISU defines repository interfaces that source modules implement
-as adapters. This enables Dependency Inversion — ISU never imports source-specific
-code, and source modules own their data format.
+**Description**: ISU provides hooks and DTOs (in `ksfraser/staging-dto` package)
+for external modules to stage data. External modules create DTOs and call ISU
+hooks. ISU handles all DB operations and FA entity creation. ISU responds about
+staging data ONLY — never about FA journal entries, customers, or entities.
 
 | ID | Requirement | Notes |
 |----|-------------|-------|
-| FR-09.01 | ISU shall define `TransactionRepositoryInterface` in `src/Contracts/` | insert, findById, findBySourceAndId, findByStatus, updateStatus, updateFaReference, countByStatus |
-| FR-09.02 | ISU shall define `CustomerRepositoryInterface` in `src/Contracts/` | insert, findById, findByEmail, updateStatus |
-| FR-09.03 | ISU shall define `PaymentRepositoryInterface` in `src/Contracts/` | insert, findByTransactionId, getQueueForReconciliation |
-| FR-09.04 | ISU shall define `LineItemRepositoryInterface` in `src/Contracts/` | insert, findByTransactionId, deleteByTransactionId |
-| FR-09.05 | ISU shall define `AuditLogRepositoryInterface` in `src/Contracts/` | log, findByRecord, getRecent |
-| FR-09.06 | Source modules shall implement these interfaces as adapter classes | Square: `src/Staging/*RepositoryAdapter.php` |
-| FR-09.07 | Source modules shall map ISU model fields to/from their proprietary schema | Adapters handle field translation |
-| FR-09.08 | Source modules shall use FA's `db_*` functions in adapter implementations | PHP 7.3 compat, no PDO |
-| FR-09.09 | Source modules shall preserve Square-specific fields in `raw_json` / `attributes` EAV | ISU models don't know Square fields |
+| FR-09.01 | ISU shall expose `stageEntity` hook accepting any `StagingEntity` subclass | Single hook for all entity types |
+| FR-09.02 | ISU shall expose `stagingExists` hook accepting `StagingExistsQuery` | Returns `StagingExistsResult` |
+| FR-09.03 | ISU shall expose `processQueue` hook accepting source string | Triggers processing for a source |
+| FR-09.04 | ISU shall check `$dto->getVersion()` for version handling | Each DTO defines own version |
+| FR-09.05 | ISU shall check `$dto instanceof` for type-specific processing | StagingOrder vs StagingInvoice, etc. |
+| FR-09.06 | ISU shall respond about staging data ONLY | Never expose FA entities to external modules |
+| FR-09.07 | ISU shall handle duplicate detection (source + sourceId) | Idempotent inserts |
+| FR-09.08 | External modules shall depend on `ksfraser/staging-dto` | Shared DTO package |
+| FR-09.09 | External modules shall call ISU hooks, not do DB operations | ISU owns all DB work |
+| FR-09.10 | Bank import shall coordinate with ISU for cash flow matching | Check stagingExists before inserting |
+
+**Legacy Note:** The repository adapter pattern (FR-09.01-09.05 in previous version)
+was deprecated in v2.5.0. See `src/Staging/*RepositoryAdapter.php` for deprecated
+adapter classes.
 
 ---
 

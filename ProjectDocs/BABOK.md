@@ -125,27 +125,35 @@ Using MoSCoW:
 | Phase 2: Core Services | DAO, Services, Validators, ProcessingPipeline | Next |
 | Phase 3: Integration | hooks.php, composer.json, tests | Next |
 | Phase 4: Adoption | Migrate source modules to use unified staging | After v1.0 |
-| Phase 5: Cross-Module Adapters | Source modules implement ISU repository interfaces | v2.4.5+ |
+| Phase 5: Hooks+DTO Architecture | External modules call ISU hooks with DTOs | v2.5+ |
 
-### Task: Cross-Module Adapter Architecture
+### Task: Hooks+DTO Architecture
 
-ISU defines repository interfaces in `src/Contracts/`. Source modules (Square,
-WooCommerce, etc.) implement these interfaces as adapters, enabling ISU's
-StagingService to process their data through the standard contract.
+ISU defines hooks and DTOs (in `ksfraser/staging-dto` package) for external
+modules to stage data. External modules create DTOs and call ISU hooks.
+ISU handles all DB operations and FA entity creation.
 
-| Adapter | Source Module | Interface | Status |
-|---------|--------------|-----------|--------|
-| TransactionRepositoryAdapter | ksf_FA_Square | TransactionRepositoryInterface | ✅ |
-| CustomerRepositoryAdapter | ksf_FA_Square | CustomerRepositoryInterface | ✅ |
-| PaymentRepositoryAdapter | ksf_FA_Square | PaymentRepositoryInterface | ✅ |
-| LineItemRepositoryAdapter | ksf_FA_Square | LineItemRepositoryInterface | ✅ |
-| AuditLogRepositoryAdapter | ksf_FA_Square | AuditLogRepositoryInterface | ✅ |
+| Hook | DTO Type | Purpose |
+|------|----------|---------|
+| `stageEntity` | Any `StagingEntity` subclass | Insert entity into staging |
+| `stagingExists` | `StagingExistsQuery` | Check if entity exists in staging |
+| `processQueue` | `string` (source) | Trigger processing for a source |
+
+**Key Principles:**
+- ISU owns all DB operations (insert, update, match, process)
+- External modules only create DTOs and call hooks
+- ISU responds about staging data ONLY — never about FA entities
+- `ksfraser/staging-dto` package shared across all modules (ISU, Square, Woo, etc.)
 
 **Benefits:**
 - ISU never imports source-specific code (Dependency Inversion)
-- Source modules own their data format; adapters bridge the gap
-- New sources just implement the interfaces — no ISU changes needed
-- WooCommerce uses hook-based delegation instead (different pattern)
+- External modules just create DTOs — no DB knowledge needed
+- New sources just depend on `ksfraser/staging-dto` and call hooks
+- All modules (Square, Woo, PayPal, Stripe) use same pattern
+
+**Legacy Note:** The repository adapter pattern (FR-09) was an earlier approach.
+It is now deprecated in favor of hooks+DTO. Adapter classes are marked
+`@deprecated` and will be removed in v3.0.0.
 
 ---
 

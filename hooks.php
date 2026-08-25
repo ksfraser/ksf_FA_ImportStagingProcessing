@@ -28,8 +28,8 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         $capabilities = [
             'staging' => [
                 'description' => 'Stage customers, transactions, and payments from any source',
-                'methods' => ['stageCustomer', 'stageTransaction', 'stagePayment', 'getStagedCustomers', 'getStagedTransactions', 'getStagedPayments', 'updateStatus'],
-                'events' => ['STAGE_CUSTOMER', 'STAGE_TRANSACTION', 'STAGE_PAYMENT'],
+                'methods' => ['stageCustomer', 'stageTransaction', 'stagePayment', 'stageEntity', 'stagingExists', 'getStagedCustomers', 'getStagedTransactions', 'getStagedPayments', 'getById', 'delete', 'getStatusCounts', 'updateFields', 'updateStatus', 'getItemsByTransaction', 'deleteLineItemsByTransaction'],
+                'events' => ['STAGE_CUSTOMER', 'STAGE_TRANSACTION', 'STAGE_PAYMENT', 'STAGE_ENTITY', 'STAGING_EXISTS'],
             ],
             'matching' => [
                 'description' => 'Match and process staged transactions',
@@ -200,6 +200,41 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
                 $filters = $opts['filters'] ?? $data['filters'] ?? [];
                 $data['result'] = array_map(fn($p) => $p->toArray(), $service->getStagedPayments($filters));
                 return $data['result'];
+            case 'getById':
+                $id = (int)($opts['id'] ?? $data['id'] ?? 0);
+                $entityType = $opts['entity_type'] ?? $data['entity_type'] ?? 'transaction';
+                $result = $this->getStagingById($id, $entityType, $service);
+                $data['result'] = $result;
+                return $result;
+            case 'delete':
+                $id = (int)($opts['id'] ?? $data['id'] ?? 0);
+                $entityType = $opts['entity_type'] ?? $data['entity_type'] ?? 'transaction';
+                $this->deleteStagingRecord($id, $entityType, $service);
+                $data['success'] = true;
+                return true;
+            case 'getStatusCounts':
+                $source = $opts['source'] ?? $data['source'] ?? null;
+                $env = $opts['environment'] ?? $data['environment'] ?? null;
+                $result = $this->getStatusCountsForSource($source, $env, $service);
+                $data['result'] = $result;
+                return $result;
+            case 'updateFields':
+                $id = (int)($opts['id'] ?? $data['id'] ?? 0);
+                $fields = $opts['fields'] ?? $data['fields'] ?? [];
+                $entityType = $opts['entity_type'] ?? $data['entity_type'] ?? 'transaction';
+                $this->updateStagingFields($id, $fields, $entityType, $service);
+                $data['success'] = true;
+                return true;
+            case 'getItemsByTransaction':
+                $stagingId = (int)($opts['staging_id'] ?? $data['staging_id'] ?? 0);
+                $result = $this->getItemsByTransactionId($stagingId, $service);
+                $data['result'] = $result;
+                return $result;
+            case 'deleteLineItemsByTransaction':
+                $stagingId = (int)($opts['staging_id'] ?? $data['staging_id'] ?? 0);
+                $service->deleteLineItemsByTransaction($stagingId);
+                $data['success'] = true;
+                return true;
             case 'updateStatus':
                 $id = (int)($opts['id'] ?? $data['id'] ?? 0);
                 $status = $opts['status'] ?? $data['status'] ?? '';
@@ -456,6 +491,90 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
+    /**
+     * STAGE_ENTITY — Generic hook for staging any DTO subclass.
+     *
+     * Accepts ksfraser/staging-dto DTOs and routes to appropriate staging method.
+     * Replaces type-specific STAGE_* events with one polymorphic entry point.
+     *
+     * Called by:
+     *   $dto = new StagingOrder('square', 'sq_123', 100.00, 'USD', 'completed', 'card');
+     *   $result = hook_invoke('ksf_FA_ImportStagingProcessing_UI', 'stageEntity', $dto);
+     *
+     * @param mixed &$data The DTO object (passed by reference for hook compatibility)
+     * @param array|null $opts Options
+     * @return array|null StagingExistsResult as array, or null on failure
+     */
+    public function STAGE_ENTITY(&$data, $opts = null)
+    {
+        if (!$data instanceof \Ksfraser\StagingDto\StagingEntity) {
+            $data['error'] = 'stageEntity requires a StagingEntity DTO instance';
+            $data['success'] = false;
+            return null;
+        }
+
+        if (!$this->authorizeAction('create', 'staging_' . (new \ReflectionClass($data))->getShortName())) {
+            $data['error'] = 'Unauthorized';
+            $data['success'] = false;
+            return null;
+        }
+
+        try {
+            $adapter = $this->getDtoAdapter();
+            $result = $adapter->stageEntity($data);
+            $arr = $result->toArray();
+            $arr['_event'] = 'ENTITY_STAGED';
+            $arr['_module'] = $this->module_name;
+            $arr['_dto_type'] = (new \ReflectionClass($data))->getShortName();
+            $data['result'] = $arr;
+            $data['success'] = $result->getExists();
+            return $arr;
+        } catch (\Exception $e) {
+            error_log('STAGE_ENTITY failed: ' . $e->getMessage());
+            $data['error'] = $e->getMessage();
+            $data['success'] = false;
+            return null;
+        }
+    }
+
+    /**
+     * STAGING_EXISTS — Check if a staging entity exists.
+     *
+     * Accepts a StagingExistsQuery DTO and returns StagingExistsResult.
+     *
+     * Called by:
+     *   $query = new StagingExistsQuery('square', 'sq_txn_123', 'transaction');
+     *   $result = hook_invoke('ksf_FA_ImportStagingProcessing_UI', 'stagingExists', $query);
+     *
+     * @param mixed &$data The query DTO object
+     * @param array|null $opts Options
+     * @return array|null StagingExistsResult as array
+     */
+    public function STAGING_EXISTS(&$data, $opts = null)
+    {
+        if (!$data instanceof \Ksfraser\StagingDto\StagingExistsQuery) {
+            $data['error'] = 'stagingExists requires a StagingExistsQuery DTO instance';
+            $data['success'] = false;
+            return null;
+        }
+
+        try {
+            $adapter = $this->getDtoAdapter();
+            $result = $adapter->stagingExists($data);
+            $arr = $result->toArray();
+            $arr['_event'] = 'ENTITY_EXISTS_CHECKED';
+            $arr['_module'] = $this->module_name;
+            $data['result'] = $arr;
+            $data['success'] = true;
+            return $arr;
+        } catch (\Exception $e) {
+            error_log('STAGING_EXISTS failed: ' . $e->getMessage());
+            $data['error'] = $e->getMessage();
+            $data['success'] = false;
+            return null;
+        }
+    }
+
     private function handleProcessingRequest($action, &$data, $opts)
     {
         switch ($action) {
@@ -532,6 +651,121 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
             $customerDAO, $transactionDAO, $paymentDAO, $paymentMatchDAO,
             $lineItemDAO, $logDAO, $txnValidator, $custValidator, $paymentValidator, $matchingService
         );
+    }
+
+    private function getDtoAdapter()
+    {
+        $stagingService = $this->getStagingService();
+        $this->ensureRuntimeAutoload();
+        $tablePrefix = defined('TB_PREF') ? TB_PREF : '0_';
+        $db = new \ksf_ModulesDAO();
+        $transactionDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
+        $customerDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
+        $paymentDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
+        return new \ksfraser\FrontAccounting\ImportStaging\Services\DtoAdapter(
+            $stagingService, $transactionDAO, $customerDAO, $paymentDAO
+        );
+    }
+
+    private function getStagingById(int $id, string $entityType, $service): ?array
+    {
+        $this->ensureRuntimeAutoload();
+        $tablePrefix = defined('TB_PREF') ? TB_PREF : '0_';
+        $db = new \ksf_ModulesDAO();
+
+        switch ($entityType) {
+            case 'transaction':
+                $dao = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
+                $record = $dao->findById($id);
+                return $record ? $record->toArray() : null;
+            case 'customer':
+                $dao = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
+                $record = $dao->findById($id);
+                return $record ? $record->toArray() : null;
+            case 'payment':
+                $dao = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
+                $record = $dao->findById($id);
+                return $record ? $record->toArray() : null;
+            default:
+                return null;
+        }
+    }
+
+    private function deleteStagingRecord(int $id, string $entityType, $service): void
+    {
+        $this->ensureRuntimeAutoload();
+        $tablePrefix = defined('TB_PREF') ? TB_PREF : '0_';
+        $db = new \ksf_ModulesDAO();
+
+        switch ($entityType) {
+            case 'transaction':
+                $dao = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
+                $dao->delete($id);
+                break;
+            case 'customer':
+                $dao = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
+                $dao->delete($id);
+                break;
+            case 'payment':
+                $dao = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
+                $dao->delete($id);
+                break;
+        }
+    }
+
+    private function getStatusCountsForSource(?string $source, ?string $env, $service): array
+    {
+        $this->ensureRuntimeAutoload();
+        $tablePrefix = defined('TB_PREF') ? TB_PREF : '0_';
+        $db = new \ksf_ModulesDAO();
+        $dao = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
+        return $dao->countByStatus($source);
+    }
+
+    private function updateStagingFields(int $id, array $fields, string $entityType, $service): void
+    {
+        $this->ensureRuntimeAutoload();
+        $tablePrefix = defined('TB_PREF') ? TB_PREF : '0_';
+        $db = new \ksf_ModulesDAO();
+
+        switch ($entityType) {
+            case 'transaction':
+                $dao = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
+                $record = $dao->findById($id);
+                if ($record) {
+                    foreach ($fields as $key => $value) {
+                        $method = 'set' . str_replace('_', '', ucwords($key, '_'));
+                        if (method_exists($record, $method)) {
+                            $record->$method($value);
+                        }
+                    }
+                    $dao->update($record);
+                }
+                break;
+            case 'customer':
+                $dao = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
+                $record = $dao->findById($id);
+                if ($record) {
+                    foreach ($fields as $key => $value) {
+                        $method = 'set' . str_replace('_', '', ucwords($key, '_'));
+                        if (method_exists($record, $method)) {
+                            $record->$method($value);
+                        }
+                    }
+                    $dao->update($record);
+                }
+                break;
+        }
+    }
+
+    private function getItemsByTransactionId(int $stagingId, $service): array
+    {
+        $this->ensureRuntimeAutoload();
+        $tablePrefix = defined('TB_PREF') ? TB_PREF : '0_';
+        $db = new \ksf_ModulesDAO();
+        $dao = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingLineItemDAO($tablePrefix, $db);
+        $items = $dao->findByTransactionId($stagingId);
+        return array_map(fn($item) => $item->toArray(), $items);
     }
 
     private function getProcessingPipeline()
