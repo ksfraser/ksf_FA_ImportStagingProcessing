@@ -23,11 +23,6 @@
             "canonical": false
         },
         {
-            "type": "path",
-            "url": "../ksf_staging_dto",
-            "canonical": false
-        },
-        {
             "type": "vcs",
             "url": "https://github.com/ksfraser/Traits.git"
         }
@@ -37,7 +32,7 @@
         "ext-json": "*",
         "ksfraser/ksf-modules-dao": "^0.3",
         "ksfraser/contact-dto": "^0.1",
-        "ksfraser/staging-dto": "dev-main",
+        "ksfraser/staging-dto": "^0.0.1",
         "ksfraser/file": "dev-main",
         "ksfraser/traits": "dev-main",
         "ksfraser/exceptions": "^1.3"
