@@ -225,9 +225,15 @@ class DtoAdapter
 
     private function stageCustomerDto(StagingCustomer $dto): StagingExistsResult
     {
+        $name = trim(implode(' ', array_filter([
+            $dto->getFirstName(),
+            $dto->getLastName(),
+            $dto->getCompany(),
+        ], fn($v) => $v !== '')));
         $data = [
             'source' => $dto->getSource(),
             'source_customer_id' => $dto->getSourceId(),
+            'name' => $name,
             'first_name' => $dto->getFirstName(),
             'last_name' => $dto->getLastName(),
             'email' => $dto->getEmail(),

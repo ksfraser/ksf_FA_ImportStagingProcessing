@@ -150,6 +150,18 @@ class DtoAdapterTest extends TestCase
 
         $this->stagingService->expects($this->once())
             ->method('stageOrUpdateCustomer')
+            ->with(
+                $this->callback(function ($data) {
+                    return $data['source'] === 'woo'
+                        && $data['source_customer_id'] === 'woo_cust_456'
+                        && $data['name'] === 'Jane Doe Acme Inc'
+                        && $data['first_name'] === 'Jane'
+                        && $data['last_name'] === 'Doe'
+                        && $data['email'] === 'jane@example.com'
+                        && $data['phone'] === '555-6789';
+                }),
+                $this->equalTo('woo')
+            )
             ->willReturn($stagingCustomer);
 
         $result = $this->adapter->stageEntity($dto);
