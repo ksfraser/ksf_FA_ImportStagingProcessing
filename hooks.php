@@ -507,32 +507,49 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
      */
     public function STAGE_ENTITY(&$data, $opts = null)
     {
+        // Callers may pass either an array or a DTO instance (by reference).
+        // This responder REQUIRES the DTO, so it must never write array offsets
+        // onto $data -- StagingEntity implements JsonSerializable, not
+        // ArrayAccess, so "$data['result'] = ..." fatals with
+        // "Cannot use object of type ... as array". The by-reference-safe
+        // contract is: replace $data wholesale with a response array.
         if (!$data instanceof \Ksfraser\StagingDto\StagingEntity) {
-            $data['error'] = 'stageEntity requires a StagingEntity DTO instance';
-            $data['success'] = false;
+            $data = [
+                'error' => 'stageEntity requires a StagingEntity DTO instance',
+                'success' => false,
+            ];
             return null;
         }
 
-        if (!$this->authorizeAction('create', 'staging_' . (new \ReflectionClass($data))->getShortName())) {
-            $data['error'] = 'Unauthorized';
-            $data['success'] = false;
+        $dto = $data;
+
+        if (!$this->authorizeAction('create', 'staging_' . (new \ReflectionClass($dto))->getShortName())) {
+            $data = [
+                'error' => 'Unauthorized',
+                'success' => false,
+            ];
             return null;
         }
 
         try {
             $adapter = $this->getDtoAdapter();
-            $result = $adapter->stageEntity($data);
+            $result = $adapter->stageEntity($dto);
             $arr = $result->toArray();
             $arr['_event'] = 'ENTITY_STAGED';
             $arr['_module'] = $this->module_name;
-            $arr['_dto_type'] = (new \ReflectionClass($data))->getShortName();
-            $data['result'] = $arr;
-            $data['success'] = $result->getExists();
+            $arr['_dto_type'] = (new \ReflectionClass($dto))->getShortName();
+
+            $data = [
+                'success' => $result->getExists(),
+                'result' => $arr,
+            ];
             return $arr;
         } catch (\Exception $e) {
             error_log('STAGE_ENTITY failed: ' . $e->getMessage());
-            $data['error'] = $e->getMessage();
-            $data['success'] = false;
+            $data = [
+                'error' => $e->getMessage(),
+                'success' => false,
+            ];
             return null;
         }
     }
@@ -552,9 +569,13 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
      */
     public function STAGING_EXISTS(&$data, $opts = null)
     {
+        // Same by-reference rule as STAGE_ENTITY: $data is a StagingExistsQuery
+        // DTO here, so replace it wholesale instead of writing array offsets.
         if (!$data instanceof \Ksfraser\StagingDto\StagingExistsQuery) {
-            $data['error'] = 'stagingExists requires a StagingExistsQuery DTO instance';
-            $data['success'] = false;
+            $data = [
+                'error' => 'stagingExists requires a StagingExistsQuery DTO instance',
+                'success' => false,
+            ];
             return null;
         }
 
@@ -564,13 +585,18 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
             $arr = $result->toArray();
             $arr['_event'] = 'ENTITY_EXISTS_CHECKED';
             $arr['_module'] = $this->module_name;
-            $data['result'] = $arr;
-            $data['success'] = true;
+
+            $data = [
+                'success' => true,
+                'result' => $arr,
+            ];
             return $arr;
         } catch (\Exception $e) {
             error_log('STAGING_EXISTS failed: ' . $e->getMessage());
-            $data['error'] = $e->getMessage();
-            $data['success'] = false;
+            $data = [
+                'error' => $e->getMessage(),
+                'success' => false,
+            ];
             return null;
         }
     }
