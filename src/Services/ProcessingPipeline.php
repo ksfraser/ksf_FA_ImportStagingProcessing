@@ -392,87 +392,117 @@ class ProcessingPipeline implements ProcessorInterface
     }
 
     /**
-     * Invoke customer creation via hook_invoke_first.
-     * Falls back to direct service if hook_invoke_first is unavailable.
+     * Invoke customer creation via a TARGETED hook_invoke.
+     *
+     * Targeted, not hook_invoke_first: CREATE_CUSTOMER is owned by
+     * ksf_FA_CRM, and a broadcast-first-wins dispatch makes the owner
+     * arbitrary once more than one module advertises the name. A missing
+     * responder is reported honestly rather than papered over by a fallback
+     * that would have fabricated a debtor.
+     *
+     * @param array $data
+     * @return array|null
      */
     private function invokeCustomerCreation(array $data): ?array
     {
-        if (function_exists('hook_invoke_first')) {
-            $result = hook_invoke_first('CREATE_CUSTOMER', $data);
-            if (is_array($result)) {
-                return $result;
-            }
-        }
-        return $this->createCustomerDirect($data);
-    }
+        $result = $this->invokeCreationHook('ksf_FA_CRM', 'CREATE_CUSTOMER', $data);
 
-    /**
-     * Invoke payment creation via hook_invoke_first.
-     * Falls back to direct service if hook_invoke_first is unavailable.
-     */
-    private function invokePaymentCreation(array $data): ?array
-    {
-        if (function_exists('hook_invoke_first')) {
-            $result = hook_invoke_first('CREATE_PAYMENT', $data);
-            if (is_array($result)) {
-                return $result;
-            }
+        if (is_array($result)) {
+            return $result;
         }
-        return $this->createPaymentDirect($data);
-    }
 
-    /**
-     * Invoke transaction creation - delegates to the appropriate module.
-     */
-    private function invokeTransactionCreation(array $data): ?array
-    {
-        if (function_exists('hook_invoke_first')) {
-            $result = hook_invoke_first('CREATE_SALES_INVOICE', $data);
-            if (is_array($result)) {
-                return $result;
-            }
-        }
-        $data['error'] = 'No module handles CREATE_SALES_INVOICE';
+        $data['error'] = 'ksf_FA_CRM does not provide CREATE_CUSTOMER';
+        $data['success'] = false;
+
         return $data;
     }
 
     /**
-     * Direct fallback for customer creation when hooks are not available.
+     * Invoke payment creation via a TARGETED hook_invoke.
+     *
+     * Owned by ksf_FA_Payment.
+     *
+     * @param array $data
+     * @return array|null
      */
-    private function createCustomerDirect(array $data): ?array
+    private function invokePaymentCreation(array $data): ?array
     {
-        if (!class_exists(\Ksfraser\FACustomer\Services\CustomerService::class)) {
-            $data['error'] = 'CustomerService not available';
-            return $data;
+        $result = $this->invokeCreationHook('ksf_FA_Payment', 'CREATE_PAYMENT', $data);
+
+        if (is_array($result)) {
+            return $result;
         }
-        try {
-            $service = new \Ksfraser\FACustomer\Services\CustomerService();
-            $dto = $service->createCustomer($data);
-            return $dto->toArray();
-        } catch (\Exception $e) {
-            $data['error'] = $e->getMessage();
-            return $data;
-        }
+
+        $data['error'] = 'ksf_FA_Payment does not provide CREATE_PAYMENT';
+        $data['success'] = false;
+
+        return $data;
     }
 
     /**
-     * Direct fallback for payment creation when hooks are not available.
+     * Invoke sales invoice creation via a TARGETED hook_invoke.
+     *
+     * Owned by ksf_FA_Sales.
+     *
+     * @param array $data
+     * @return array|null
      */
-    private function createPaymentDirect(array $data): ?array
+    private function invokeTransactionCreation(array $data): ?array
     {
-        if (!class_exists(\Ksfraser\FAPayment\Services\PaymentService::class)) {
-            $data['error'] = 'PaymentService not available';
-            return $data;
+        $result = $this->invokeCreationHook('ksf_FA_Sales', 'CREATE_SALES_INVOICE', $data);
+
+        if (is_array($result)) {
+            return $result;
         }
-        try {
-            $service = new \Ksfraser\FAPayment\Services\PaymentService();
-            $dto = $service->createPayment($data);
-            return $dto->toArray();
-        } catch (\Exception $e) {
-            $data['error'] = $e->getMessage();
-            return $data;
-        }
+
+        $data['error'] = 'ksf_FA_Sales does not provide CREATE_SALES_INVOICE';
+        $data['success'] = false;
+
+        return $data;
     }
+
+    /**
+     * Dispatch a creation request to its owning module.
+     *
+     * Note the by-reference contract: a responder that receives a DTO replaces
+     * $data with a response array, so the reply is read from the return value
+     * and from $data, whichever the responder populated.
+     *
+     * @param string $module
+     * @param string $method
+     * @param array  $data
+     * @return array|null
+     */
+    private function invokeCreationHook(string $module, string $method, array &$data): ?array
+    {
+        if (!function_exists('hook_invoke')) {
+            return null;
+        }
+
+        $result = hook_invoke($module, $method, $data);
+
+        if (is_array($result)) {
+            return $result;
+        }
+
+        // Some responders mutate $data in place instead of returning.
+        if (isset($data['success'])) {
+            return $data;
+        }
+
+        return null;
+    }
+
+    /**
+     * Direct fallbacks were removed deliberately.
+     *
+     * They referenced \Ksfraser\FACustomer\Services\CustomerService and
+     * \Ksfraser\FAPayment\Services\PaymentService, neither of which exists in
+     * any tree -- so both branches only ever set $data['error'] while making the
+     * caller believe a fallback had been attempted successfully. Creation now
+     * goes solely through the owning modules: ksf_FA_CRM (CREATE_CUSTOMER),
+     * ksf_FA_Payment (CREATE_PAYMENT), ksf_FA_Sales (CREATE_SALES_INVOICE).
+     */
 
     public function getProcessedIds(): array
     {

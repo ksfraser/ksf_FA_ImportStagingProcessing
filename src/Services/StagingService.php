@@ -570,28 +570,39 @@ class StagingService implements StagingManagerInterface
 
     /**
      * Create new FA debtor/branch/contact from staged customer.
-     * This triggers FA native customer creation via hooks (not direct DAO here).
+     * This triggers FA native customer creation via targeted CRM responder.
      */
     public function createDebtorFromStaged(StagingCustomer $stagedCustomer): array
     {
-        $debtorData = [
-            'name' => $stagedCustomer->getName(),
-            'email' => $stagedCustomer->getEmail(),
-            'phone' => $stagedCustomer->getPhone(),
-            'debtor_ref' => $stagedCustomer->getSourceCustomerId() ? 'square_' . $stagedCustomer->getSourceCustomerId() : '',
+        $fullName = $stagedCustomer->getName() ?? '';
+        $parts = explode(' ', $fullName, 2);
+        
+        $requestData = [
+            'action' => 'create_customer',
+            'name' => $fullName,
+            'first_name' => $parts[0] ?? '',
+            'last_name' => $parts[1] ?? '',
+            'email' => $stagedCustomer->getEmail() ?? '',
+            'phone' => $stagedCustomer->getPhone() ?? '',
+            'address' => trim(($stagedCustomer->getAddressLine1() ?? '') . ' ' . ($stagedCustomer->getAddressLine2() ?? '')),
+            'source_customer_id' => $stagedCustomer->getSourceCustomerId()
         ];
-        // Call hook to create debtor in FA (FA module responds)
-        $resultData = [
-            'action' => 'create_debtor',
-            'debtor_data' => $debtorData,
+
+        // Targeted invoke to CRM responder
+        $response = \hook_invoke('ksf_FA_CRM', 'CREATE_CUSTOMER', $requestData);
+
+        if (empty($response['success'])) {
+            throw new \RuntimeException('Failed to create FA debtor: ' . ($response['error'] ?? 'Unknown error'));
+        }
+
+        $stagedCustomer->setFaDebtorNo($response['fa_debtor_no']);
+        $this->customerDAO->updateBySource($stagedCustomer);
+
+        return array_merge($requestData, [
             'staged_customer_id' => $stagedCustomer->getId(),
-        ];
-        \hook_invoke_all('process_staging_customer', $resultData);
-        return array_merge($debtorData, [
-            'staged_customer_id' => $stagedCustomer->getId(),
-            'fa_debtor_no' => $stagedCustomer->getFaDebtorNo(),
-            'branch_code' => null,
-            'contact_ref' => null,
+            'fa_debtor_no' => $response['fa_debtor_no'],
+            'branch_code' => $response['branch_code'],
+            'contact_id' => $response['contact_id'],
         ]);
     }
 
