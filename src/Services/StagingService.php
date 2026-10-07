@@ -8,6 +8,9 @@ use ksfraser\FrontAccounting\ImportStaging\Contracts\ValidationResult;
 use ksfraser\FrontAccounting\ImportStaging\Contracts\ProcessingResult;
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingCustomer;
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingTransaction;
+use ksfraser\FrontAccounting\ImportStaging\Services\Dispatch\CreationInvoker;
+use ksfraser\FrontAccounting\ImportStaging\Services\Dispatch\SearchInvoker;
+use ksfraser\FrontAccounting\ImportStaging\Services\Matching\MatchConfig;
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingPayment;
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingPaymentMatch;
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingLineItem;
@@ -432,16 +435,33 @@ class StagingService implements StagingManagerInterface
         $this->logDAO->log('line_item', $stagingTransactionId, 'deleted', null);
     }
 
-    /**
-     * Search the new FA modules (ksf_FA_Customer, ksf_FA_Payment) for existing
-     * records that could match the given staged record. Uses hook_invoke_first
-     * to communicate with the sub-modules.
+/**
+     * Search every active module for records that could match this staged one.
      *
-     * Falls back gracefully (empty array) when hooks or modules are unavailable.
+     * A lookup uses hook_invoke_all, NOT first-answer-wins: "have we already
+     * got this person?" is legitimately answered by several modules at once -- an
+     * FA debtor (ksf_FA_Customer), an employee (ksf_FA_HRM), a CRM contact
+     * (ksf_FA_CRM), a login (ksf_FA_RBAC). Taking only the first answer would
+     * hide exactly the collision dedupe exists to catch. Creation is the mirror
+     * image -- one provider, so that is dispatched by capability through
+     * CreationInvoker.
+     *
+     * The +/-N day window and the amount tolerance come from MatchConfig and are
+     * handed to the providers rather than applied here, so each can filter in SQL
+     * instead of fetching everything and discarding it locally.
+     *
+     * @param StagingTransaction|array $stagedRecord
+     * @return array
      */
     private function findExistingMatchRecords($stagedRecord): array
     {
         $existing = [];
+
+        if (!function_exists('hook_invoke_all')) {
+            return $existing;
+        }
+
+        $search = new SearchInvoker($this->matchConfig());
 
         $customerName = $stagedRecord instanceof StagingTransaction
             ? $stagedRecord->getCustomerName()
@@ -452,125 +472,176 @@ class StagingService implements StagingManagerInterface
         $reference = $stagedRecord instanceof StagingTransaction
             ? $stagedRecord->getSourceTransactionId()
             : ($stagedRecord['source_transaction_id'] ?? null);
+        $date = $stagedRecord instanceof StagingTransaction
+            ? $stagedRecord->getTransactionDate()
+            : ($stagedRecord['transaction_date'] ?? null);
+        $amount = $stagedRecord instanceof StagingTransaction
+            ? $stagedRecord->getTotalAmount()
+            : ($stagedRecord['total_amount'] ?? null);
 
-        if (!function_exists('hook_invoke_first')) {
-            return $existing;
-        }
-
+        // Email is the strongest signal, so it gets its own pass; the name pass
+        // then adds anything the email pass missed.
         if ($customerEmail) {
-            $searchData = ['query' => $customerEmail];
-            $faCustomers = hook_invoke_first('SEARCH_CUSTOMER', $searchData);
-            if (is_array($faCustomers)) {
-                foreach ($faCustomers as $faCust) {
-                    $existing[] = [
-                        'customer_name' => $faCust['name'] ?? '',
-                        'customer_email' => $faCust['email'] ?? '',
-                        'total_amount' => 0.0,
-                        'transaction_date' => null,
-                        'source_transaction_id' => $faCust['reference'] ?? '',
-                        '_fa_type' => 'customer',
-                        '_fa_debtor_no' => $faCust['fa_debtor_no'] ?? $faCust['debtor_no'] ?? 0,
-                    ];
-                }
-            }
+            $existing = array_merge($existing, $this->searchCustomers(
+                $search,
+                array('query' => $customerEmail, 'email' => $customerEmail),
+                $date,
+                $amount
+            ));
         }
 
         if ($customerName) {
-            $searchData = ['query' => $customerName];
-            $faCustomers = hook_invoke_first('SEARCH_CUSTOMER', $searchData);
-            if (is_array($faCustomers)) {
-                foreach ($faCustomers as $faCust) {
-                    $alreadyAdded = false;
-                    foreach ($existing as $e) {
-                        if (($e['_fa_debtor_no'] ?? 0) === ($faCust['fa_debtor_no'] ?? $faCust['debtor_no'] ?? 0)) {
-                            $alreadyAdded = true;
-                            break;
-                        }
-                    }
-                    if (!$alreadyAdded) {
-                        $existing[] = [
-                            'customer_name' => $faCust['name'] ?? '',
-                            'customer_email' => $faCust['email'] ?? '',
-                            'total_amount' => 0.0,
-                            'transaction_date' => null,
-                            'source_transaction_id' => $faCust['reference'] ?? '',
-                            '_fa_type' => 'customer',
-                            '_fa_debtor_no' => $faCust['fa_debtor_no'] ?? $faCust['debtor_no'] ?? 0,
-                        ];
-                    }
-                }
-            }
+            $existing = array_merge($existing, $this->searchCustomers(
+                $search,
+                array('query' => $customerName, 'name' => $customerName),
+                $date,
+                $amount
+            ));
         }
 
         if ($reference) {
-            $paymentData = ['reference' => $reference];
-            $faPayment = hook_invoke_first('GET_PAYMENT', $paymentData);
-            if (is_array($faPayment) && !isset($faPayment['error'])) {
-                $existing[] = [
-                    'customer_name' => '',
-                    'customer_email' => '',
-                    'total_amount' => $faPayment['amount'] ?? 0.0,
-                    'transaction_date' => $faPayment['payment_date'] ?? null,
-                    'source_transaction_id' => $faPayment['reference'] ?? $reference,
-                    '_fa_type' => 'payment',
-                    '_fa_payment_no' => $faPayment['fa_payment_no'] ?? 0,
-                ];
-            }
+            $existing = array_merge($existing, $this->searchPayments(
+                $search,
+                array('query' => $reference, 'reference' => $reference),
+                $date,
+                $amount
+            ));
         }
 
-        return $existing;
-    }
-
-    private function validateSource(string $source): void
-    {
-        if (empty($source)) {
-            throw InvalidSourceException::emptySource();
-        }
-        if (!in_array($source, $this->validSources, true)) {
-            throw InvalidSourceException::unknownSource($source);
-        }
+        return $this->dedupeExisting($existing);
     }
 
     /**
-     * Get customer mapping options for a staged customer.
-     * Returns matched debtors (with branch/contact info) or empty array.
+     * Run a customer search across all providers and normalise the rows.
+     *
+     * @param SearchInvoker $search
+     * @param array         $criteria
+     * @param string|null   $date
+     * @param float|null    $amount
+     * @return array
      */
-    public function getCustomerMappingOptions(StagingCustomer $stagedCustomer): array
+    private function searchCustomers(SearchInvoker $search, array $criteria, $date = null, $amount = null): array
     {
-        $email = $stagedCustomer->getEmail();
-        $phone = $stagedCustomer->getPhone();
-        $name = $stagedCustomer->getName();
+        if ($amount !== null) {
+            $criteria['amount'] = $amount;
+        }
 
-        $existingRecords = [];
-        // In a full implementation, this would query FA debtors via hooks/DAO
-        // For architecture compliance, we return structured options
-        $existingRecords[] = [
-            'debtor_no' => $stagedCustomer->getFaDebtorNo(),
-            'name' => $name,
-            'email' => $email,
-            'phone' => $phone,
-            'branch_ref' => null,
-            'contact_name' => null,
-        ];
+        $result = $search->search('SEARCH_CUSTOMER', $criteria, $date);
+        $rows = array();
 
-        $candidates = $this->matchingService->matchByCustomer([
-            'email' => $email,
-            'phone' => $phone,
-            'company' => $name,
-        ], $existingRecords);
+        foreach ($result['candidates'] as $candidate) {
+            $rows[] = array(
+                'customer_name' => $candidate['name'] ?? ($candidate['company'] ?? ''),
+                'customer_email' => $candidate['email'] ?? '',
+                'customer_phone' => $candidate['phone'] ?? '',
+                'total_amount' => $amount === null ? 0.0 : (float)$amount,
+                'transaction_date' => $candidate['date'] ?? $date,
+                'source_transaction_id' => $candidate['reference'] ?? '',
+                // Provenance matters: the reviewer must be able to tell a match
+                // against an HRM employee from a match against an FA debtor,
+                // because that changes whether a new debtor should be created.
+                '_found_by' => $candidate['_module'] ?? 'unknown',
+                '_entity' => $candidate['_entity'] ?? '',
+                '_fa_type' => 'customer',
+                '_fa_debtor_no' => $candidate['fa_debtor_no'] ?? ($candidate['debtor_no'] ?? 0),
+            );
+        }
 
-        return [
-            'staged_customer_id' => $stagedCustomer->getId(),
-            'source' => $stagedCustomer->getSource(),
-            'matched_candidates' => $candidates,
-            'create_new_default' => true,
-            'mapping_table' => 'staging_customers',
-        ];
+        return $rows;
     }
 
     /**
-     * Create new FA debtor/branch/contact from staged customer.
-     * This triggers FA native customer creation via targeted CRM responder.
+     * Run a payment search across all providers and normalise the rows.
+     *
+     * @param SearchInvoker $search
+     * @param array         $criteria
+     * @param string|null   $date
+     * @param float|null    $amount
+     * @return array
+     */
+    private function searchPayments(SearchInvoker $search, array $criteria, $date = null, $amount = null): array
+    {
+        if ($amount !== null) {
+            $criteria['amount'] = $amount;
+        }
+
+        $result = $search->search('SEARCH_PAYMENT', $criteria, $date);
+        $rows = array();
+
+        foreach ($result['candidates'] as $candidate) {
+            $rows[] = array(
+                'customer_name' => '',
+                'customer_email' => '',
+                'total_amount' => (float)($candidate['amount'] ?? ($amount ?? 0.0)),
+                'transaction_date' => $candidate['payment_date'] ?? ($candidate['date'] ?? $date),
+                'source_transaction_id' => $candidate['reference'] ?? '',
+                '_found_by' => $candidate['_module'] ?? 'unknown',
+                '_entity' => $candidate['_entity'] ?? '',
+                '_fa_type' => 'payment',
+                '_fa_payment_no' => $candidate['fa_payment_no'] ?? ($candidate['trans_no'] ?? 0),
+                // Carried through so a charge already recorded by the other
+                // source system (a Woo order also seen in Square) can be
+                // recognised instead of posted twice.
+                '_source' => $candidate['source'] ?? null,
+                '_source_payment_id' => $candidate['source_payment_id'] ?? null,
+            );
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Collapse rows that describe the same existing record.
+     *
+     * Keyed on the record, not the name: the same person surfacing as both an
+     * HRM employee and an FA debtor is one person with two sources, not two
+     * candidates for a reviewer to choose between.
+     *
+     * @param array $rows
+     * @return array
+     */
+    private function dedupeExisting(array $rows): array
+    {
+        $seen = array();
+        $out = array();
+
+        foreach ($rows as $row) {
+            $type = $row['_fa_type'] ?? '';
+            $id = $type === 'payment'
+                ? ($row['_fa_payment_no'] ?? 0)
+                : ($row['_fa_debtor_no'] ?? 0);
+
+            $key = $type . '|' . $row['_found_by'] . '|' . $id;
+            if ($id && isset($seen[$key])) {
+                continue;
+            }
+            if ($id) {
+                $seen[$key] = true;
+            }
+
+            $out[] = $row;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Match tunables for this service.
+     *
+     * @return MatchConfig
+     */
+    private function matchConfig(): MatchConfig
+    {
+        return new MatchConfig();
+    }
+
+    /**
+     * Create a new FA debtor/branch/contact from a staged customer.
+     *
+     * Dispatched by CAPABILITY, not by module name: CreationInvoker asks
+     * whichever active module provides CREATE_CUSTOMER. Today that is
+     * ksf_FA_Customer; a future SuiteCRM migration module should be able to
+     * answer instead without this method being edited.
      */
     public function createDebtorFromStaged(StagingCustomer $stagedCustomer): array
     {
@@ -588,21 +659,39 @@ class StagingService implements StagingManagerInterface
             'source_customer_id' => $stagedCustomer->getSourceCustomerId()
         ];
 
-        // Targeted invoke to CRM responder
-        $response = \hook_invoke('ksf_FA_Customer', 'CREATE_CUSTOMER', $requestData);
+        $invoker = new CreationInvoker();
+        $result = $invoker->create('CREATE_CUSTOMER', $requestData);
 
-        if (empty($response['success'])) {
-            throw new \RuntimeException('Failed to create FA debtor: ' . ($response['error'] ?? 'Unknown error'));
+        // Distinguish "nobody provides CREATE_CUSTOMER" from "the provider
+        // refused". Both must fail loudly: reporting a debtor number that was
+        // never created is the exact defect this pipeline exists to prevent.
+        if (!$result['handled']) {
+            throw new \RuntimeException('Failed to create FA debtor: ' . $result['error']);
         }
 
-        $stagedCustomer->setFaDebtorNo($response['fa_debtor_no']);
+        $response = $result['response'];
+        if (empty($response['success'])) {
+            throw new \RuntimeException(
+                'Failed to create FA debtor: ' . ($response['error'] ?? 'Unknown error')
+            );
+        }
+
+        $debtorNo = $response['fa_debtor_no'] ?? null;
+        if ($debtorNo === null) {
+            throw new \RuntimeException(
+                'CREATE_CUSTOMER reported success without a fa_debtor_no'
+            );
+        }
+
+        $stagedCustomer->setFaDebtorNo((int)$debtorNo);
         $this->customerDAO->updateBySource($stagedCustomer);
 
         return array_merge($requestData, [
             'staged_customer_id' => $stagedCustomer->getId(),
-            'fa_debtor_no' => $response['fa_debtor_no'],
-            'branch_code' => $response['branch_code'],
-            'contact_id' => $response['contact_id'],
+            'created_by' => $result['module'],
+            'fa_debtor_no' => (int)$debtorNo,
+            'branch_code' => $response['branch_code'] ?? null,
+            'contact_id' => $response['person_id'] ?? ($response['contact_id'] ?? null),
         ]);
     }
 

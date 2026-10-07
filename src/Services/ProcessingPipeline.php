@@ -10,6 +10,7 @@ use ksfraser\FrontAccounting\ImportStaging\Contracts\TransactionRepositoryInterf
 use ksfraser\FrontAccounting\ImportStaging\Contracts\PaymentRepositoryInterface;
 use ksfraser\FrontAccounting\ImportStaging\Contracts\LineItemRepositoryInterface;
 use ksfraser\FrontAccounting\ImportStaging\Contracts\AuditLogRepositoryInterface;
+use ksfraser\FrontAccounting\ImportStaging\Services\Dispatch\CreationInvoker;
 
 /**
  * Orchestrates the processing pipeline: takes matched/approved staging records
@@ -176,7 +177,9 @@ class ProcessingPipeline implements ProcessorInterface
                     $this->customerDAO->updateStatus($customer->getId(), 'processed');
                     $this->logDAO->log('customer', $customer->getId(), 'processed', $customer->getSource(), [
                         'fa_debtor_no' => $debtorNo,
-                        'module' => 'ksf_FA_Customer',
+                        // Whoever actually answered, per the responder's own
+                        // _module tag -- not an assumed owner.
+                        'module' => $result['_module'] ?? null,
                     ]);
                     $this->processedIds[] = $customer->getId();
                     $processed++;
@@ -273,7 +276,8 @@ class ProcessingPipeline implements ProcessorInterface
                     $this->paymentDAO->updateStatus($payment->getId(), 'processed');
                     $this->logDAO->log('payment', $payment->getId(), 'processed', $payment->getSource(), [
                         'fa_trans_no' => $faTransNo,
-                        'module' => 'ksf_FA_Payment',
+                        // Whoever actually answered.
+                        'module' => $result['_module'] ?? null,
                     ]);
                     $this->processedIds[] = $payment->getId();
                     $processed++;
@@ -392,105 +396,77 @@ class ProcessingPipeline implements ProcessorInterface
     }
 
     /**
-     * Invoke customer creation via a TARGETED hook_invoke.
+     * Invoke customer creation via the CreationInvoker.
      *
-     * Targeted, not hook_invoke_first: CREATE_CUSTOMER is owned by
-     * ksf_FA_Customer, and a broadcast-first-wins dispatch makes the owner
-     * arbitrary once more than one module advertises the name. A missing
-     * responder is reported honestly rather than papered over by a fallback
-     * that would have fabricated a debtor.
+     * Module-agnostic on purpose: ISU names the CAPABILITY, not the module. A
+     * future data-migration module (e.g. a SuiteCRM importer) is expected to be
+     * able to answer CREATE_CUSTOMER instead of ksf_FA_Customer, without ISU
+     * being edited.
      *
      * @param array $data
      * @return array|null
      */
     private function invokeCustomerCreation(array $data): ?array
     {
-        $result = $this->invokeCreationHook('ksf_FA_Customer', 'CREATE_CUSTOMER', $data);
-
-        if (is_array($result)) {
-            return $result;
-        }
-
-        $data['error'] = 'ksf_FA_Customer does not provide CREATE_CUSTOMER';
-        $data['success'] = false;
-
-        return $data;
+        return $this->invokeCreation('CREATE_CUSTOMER', $data);
     }
 
     /**
-     * Invoke payment creation via a TARGETED hook_invoke.
-     *
-     * Owned by ksf_FA_Payment.
+     * Invoke payment creation. Capability dispatched, module-agnostic.
      *
      * @param array $data
      * @return array|null
      */
     private function invokePaymentCreation(array $data): ?array
     {
-        $result = $this->invokeCreationHook('ksf_FA_Payment', 'CREATE_PAYMENT', $data);
-
-        if (is_array($result)) {
-            return $result;
-        }
-
-        $data['error'] = 'ksf_FA_Payment does not provide CREATE_PAYMENT';
-        $data['success'] = false;
-
-        return $data;
+        return $this->invokeCreation('CREATE_PAYMENT', $data);
     }
 
     /**
-     * Invoke sales invoice creation via a TARGETED hook_invoke.
-     *
-     * Owned by ksf_FA_Sales.
+     * Invoke sales invoice creation. Capability dispatched, module-agnostic.
      *
      * @param array $data
      * @return array|null
      */
     private function invokeTransactionCreation(array $data): ?array
     {
-        $result = $this->invokeCreationHook('ksf_FA_Sales', 'CREATE_SALES_INVOICE', $data);
-
-        if (is_array($result)) {
-            return $result;
-        }
-
-        $data['error'] = 'ksf_FA_Sales does not provide CREATE_SALES_INVOICE';
-        $data['success'] = false;
-
-        return $data;
+        return $this->invokeCreation('CREATE_SALES_INVOICE', $data);
     }
 
     /**
-     * Dispatch a creation request to its owning module.
+     * Ask whoever provides the capability to create the record.
      *
-     * Note the by-reference contract: a responder that receives a DTO replaces
-     * $data with a response array, so the reply is read from the return value
-     * and from $data, whichever the responder populated.
+     * Creation has exactly ONE provider, so this is first-answer-wins
+     * (hook_invoke_first). Note the distinction from lookups: a SEARCH may
+     * legitimately be answered by several modules at once and goes through
+     * SearchInvoker's hook_invoke_all instead.
      *
-     * @param string $module
-     * @param string $method
+     * @param string $capability
      * @param array  $data
-     * @return array|null
+     * @return array
      */
-    private function invokeCreationHook(string $module, string $method, array &$data): ?array
+    private function invokeCreation(string $capability, array $data): array
     {
-        if (!function_exists('hook_invoke')) {
-            return null;
+        $invoker = new CreationInvoker();
+        $result = $invoker->create($capability, $data);
+
+        if ($result['handled'] && !empty($result['ok'])) {
+            return $result['response'];
         }
 
-        $result = hook_invoke($module, $method, $data);
+        // Either nobody provides it, or the provider reported a failure.
+        // Both must surface as success=false; inventing a debtor/payment/invoice
+        // number is the failure mode this pipeline is meant to eliminate.
+        $data['success'] = false;
+        $data['error'] = $result['handled']
+            ? (string)($result['response']['error'] ?? 'responder reported failure')
+            : (string)($result['error'] ?? 'no provider');
 
-        if (is_array($result)) {
-            return $result;
+        if (!$result['handled']) {
+            $data['capability'] = $capability;
         }
 
-        // Some responders mutate $data in place instead of returning.
-        if (isset($data['success'])) {
-            return $data;
-        }
-
-        return null;
+        return $data;
     }
 
     /**
@@ -500,23 +476,19 @@ class ProcessingPipeline implements ProcessorInterface
      * \Ksfraser\FAPayment\Services\PaymentService directly, which is the wrong
      * shape for a cross-module call on two counts:
      *
-     *   1. It bypasses the hook boundary, so ISU would take a hard compile-time
-     *      dependency on whichever module happens to own the capability -- the
-     *      exact coupling the hook indirection exists to avoid.
-     *   2. It could never have worked anyway. ISU's vendor tree has no
-     *      autoloader for those modules, so the classes were not resolvable
-     *      from ISU at runtime; both branches would only ever have set
-     *      $data['error'].
+     *   1. It bypasses the hook boundary, so ISU would take a hard dependency on
+     *      whichever module happens to own the capability -- the exact coupling
+     *      the hook indirection exists to avoid, and the reason creation is
+     *      dispatched by capability rather than by module name.
+     *   2. It could never have worked anyway. ISU's vendor tree has no autoloader
+     *      for those modules, so the classes were not resolvable from ISU at
+     *      runtime; both branches would only ever have set $data['error'].
      *
      * NOTE: an earlier version of this comment claimed those classes "do not
      * exist in any tree". That was wrong, and the mistake was treating a grep
      * over ~/Documents as proof. Both modules exist on GitHub; they had simply
      * never been cloned into the local tree. The conclusion held, but for
      * reason 2 above, not the stated one.
-     *
-     * Creation now goes solely through the owning modules, via targeted
-     * hook_invoke: ksf_FA_Customer (CREATE_CUSTOMER),
-     * ksf_FA_Payment (CREATE_PAYMENT), ksf_FA_Sales (CREATE_SALES_INVOICE).
      */
 
     public function getProcessedIds(): array
