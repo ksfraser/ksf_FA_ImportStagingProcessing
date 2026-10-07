@@ -589,7 +589,7 @@ class StagingService implements StagingManagerInterface
         ];
 
         // Targeted invoke to CRM responder
-        $response = \hook_invoke('ksf_FA_CRM', 'CREATE_CUSTOMER', $requestData);
+        $response = \hook_invoke('ksf_FA_Customer', 'CREATE_CUSTOMER', $requestData);
 
         if (empty($response['success'])) {
             throw new \RuntimeException('Failed to create FA debtor: ' . ($response['error'] ?? 'Unknown error'));

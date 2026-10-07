@@ -395,7 +395,7 @@ class ProcessingPipeline implements ProcessorInterface
      * Invoke customer creation via a TARGETED hook_invoke.
      *
      * Targeted, not hook_invoke_first: CREATE_CUSTOMER is owned by
-     * ksf_FA_CRM, and a broadcast-first-wins dispatch makes the owner
+     * ksf_FA_Customer, and a broadcast-first-wins dispatch makes the owner
      * arbitrary once more than one module advertises the name. A missing
      * responder is reported honestly rather than papered over by a fallback
      * that would have fabricated a debtor.
@@ -405,13 +405,13 @@ class ProcessingPipeline implements ProcessorInterface
      */
     private function invokeCustomerCreation(array $data): ?array
     {
-        $result = $this->invokeCreationHook('ksf_FA_CRM', 'CREATE_CUSTOMER', $data);
+        $result = $this->invokeCreationHook('ksf_FA_Customer', 'CREATE_CUSTOMER', $data);
 
         if (is_array($result)) {
             return $result;
         }
 
-        $data['error'] = 'ksf_FA_CRM does not provide CREATE_CUSTOMER';
+        $data['error'] = 'ksf_FA_Customer does not provide CREATE_CUSTOMER';
         $data['success'] = false;
 
         return $data;
@@ -496,11 +496,26 @@ class ProcessingPipeline implements ProcessorInterface
     /**
      * Direct fallbacks were removed deliberately.
      *
-     * They referenced \Ksfraser\FACustomer\Services\CustomerService and
-     * \Ksfraser\FAPayment\Services\PaymentService, neither of which exists in
-     * any tree -- so both branches only ever set $data['error'] while making the
-     * caller believe a fallback had been attempted successfully. Creation now
-     * goes solely through the owning modules: ksf_FA_CRM (CREATE_CUSTOMER),
+     * They instantiated \Ksfraser\FACustomer\Services\CustomerService and
+     * \Ksfraser\FAPayment\Services\PaymentService directly, which is the wrong
+     * shape for a cross-module call on two counts:
+     *
+     *   1. It bypasses the hook boundary, so ISU would take a hard compile-time
+     *      dependency on whichever module happens to own the capability -- the
+     *      exact coupling the hook indirection exists to avoid.
+     *   2. It could never have worked anyway. ISU's vendor tree has no
+     *      autoloader for those modules, so the classes were not resolvable
+     *      from ISU at runtime; both branches would only ever have set
+     *      $data['error'].
+     *
+     * NOTE: an earlier version of this comment claimed those classes "do not
+     * exist in any tree". That was wrong, and the mistake was treating a grep
+     * over ~/Documents as proof. Both modules exist on GitHub; they had simply
+     * never been cloned into the local tree. The conclusion held, but for
+     * reason 2 above, not the stated one.
+     *
+     * Creation now goes solely through the owning modules, via targeted
+     * hook_invoke: ksf_FA_Customer (CREATE_CUSTOMER),
      * ksf_FA_Payment (CREATE_PAYMENT), ksf_FA_Sales (CREATE_SALES_INVOICE).
      */
 
