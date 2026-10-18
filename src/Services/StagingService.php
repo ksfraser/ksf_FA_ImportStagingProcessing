@@ -435,6 +435,28 @@ class StagingService implements StagingManagerInterface
         $this->logDAO->log('line_item', $stagingTransactionId, 'deleted', null);
     }
 
+    /**
+     * Reject a source name that is empty or not one of the configured providers.
+     *
+     * Guard for every public stage* entry point, so an unknown source can never
+     * reach a DAO and write a row the processing pipeline has no handler for.
+     * The valid set is constructor-injectable because the provider list is a
+     * deployment decision (an integrator adding Square, say, passes its own).
+     *
+     * @param  string $source
+     * @return void
+     * @throws InvalidSourceException
+     */
+    private function validateSource(string $source): void
+    {
+        if (empty($source)) {
+            throw InvalidSourceException::emptySource();
+        }
+        if (!in_array($source, $this->validSources, true)) {
+            throw InvalidSourceException::unknownSource($source);
+        }
+    }
+
 /**
      * Search every active module for records that could match this staged one.
      *
