@@ -6,11 +6,27 @@ namespace ksfraser\FrontAccounting\ImportStaging\Validators;
 use ksfraser\FrontAccounting\ImportStaging\Contracts\ValidationServiceInterface;
 use ksfraser\FrontAccounting\ImportStaging\Contracts\ValidationResult;
 
+/**
+ * Validates staged payment records against schema rules.
+ *
+ * Implements ValidationServiceInterface. Requires source and amount; optionally
+ * validates payment_date, payment_method, and net_amount = amount - fee.
+ *
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-008-001 validate staged records
+ * @BABOK Related: FR-ISU-003-003 net_amount = amount - fee consistency
+ * @BABOK Related: NFR-ISU-006 validation errors
+ * @BABOK Related: NFR-ISU-009 Strategy pattern
+ */
 class PaymentValidator implements ValidationServiceInterface
 {
     private array $rules;
     private array $validMethods;
 
+    /**
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-008-001 constructor
+     */
     public function __construct()
     {
         $this->validMethods = [
@@ -24,6 +40,15 @@ class PaymentValidator implements ValidationServiceInterface
         ];
     }
 
+    /**
+     * Validate a staged payment record against schema rules.
+     *
+     * @param array $record
+     * @return ValidationResult
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-008-001 validate
+     * @BABOK Related: FR-ISU-003-003 net_amount consistency check
+     */
     public function validate(array $record): ValidationResult
     {
         $errors = [];
@@ -86,11 +111,21 @@ class PaymentValidator implements ValidationServiceInterface
         return ValidationResult::invalid($errors, $warnings);
     }
 
+    /**
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-008-001 getRules
+     */
     public function getRules(): array
     {
         return $this->rules;
     }
 
+    /**
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-003-002 valid payment methods
+     */
     public function getValidMethods(): array
     {
         return $this->validMethods;

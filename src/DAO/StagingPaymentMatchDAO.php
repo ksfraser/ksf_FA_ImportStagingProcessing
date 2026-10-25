@@ -6,12 +6,31 @@ namespace ksfraser\FrontAccounting\ImportStaging\DAO;
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingPaymentMatch;
 use ksfraser\FrontAccounting\ImportStaging\Contracts\PaymentMatchRepositoryInterface;
 
+/**
+ * DAO for the staging_payment_matches reconciliation audit table.
+ *
+ * Implements PaymentMatchRepositoryInterface. Records payment-to-FA
+ * transaction match results during reconciliation.
+ *
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-013-001 payment match records
+ * @BABOK Related: FR-ISU-014-001 match status lifecycle
+ * @BABOK Related: FR-ISU-017-001 0_ company prefix
+ * @BABOK Related: NFR-ISU-003 TB_PREF convention
+ * @BABOK Related: NFR-ISU-009 Repository pattern
+ */
 class StagingPaymentMatchDAO implements PaymentMatchRepositoryInterface
 {
     private string $tablePrefix;
     private string $tableName;
     private \ksf_ModulesDAO $db;
 
+    /**
+     * @param string $tablePrefix
+     * @param \ksf_ModulesDAO $db
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-001 table name construction
+     */
     public function __construct(string $tablePrefix, \ksf_ModulesDAO $db)
     {
         $this->tablePrefix = $tablePrefix;
@@ -19,6 +38,12 @@ class StagingPaymentMatchDAO implements PaymentMatchRepositoryInterface
         $this->db = $db;
     }
 
+    /**
+     * Ensure the staging_payment_matches table exists (idempotent CREATE).
+     *
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-017-001 install schema
+     */
     public function ensureTableExists(): void
     {
         $sql = "CREATE TABLE IF NOT EXISTS {$this->tableName} (
@@ -42,6 +67,14 @@ class StagingPaymentMatchDAO implements PaymentMatchRepositoryInterface
         $this->db->query($sql);
     }
 
+    /**
+     * Insert a payment match record.
+     *
+     * @param StagingPaymentMatch $match
+     * @return int
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-001 insert
+     */
     public function insert(StagingPaymentMatch $match): int
     {
         $this->ensureTableExists();
@@ -73,6 +106,14 @@ class StagingPaymentMatchDAO implements PaymentMatchRepositoryInterface
         return $row ? StagingPaymentMatch::fromArray($row) : null;
     }
 
+    /**
+     * Find all match records for a staging payment (newest first).
+     *
+     * @param int $stagingPaymentId
+     * @return StagingPaymentMatch[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-001 findByPaymentId
+     */
     public function findByPaymentId(int $stagingPaymentId): array
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE staging_payment_id = ? ORDER BY created_at DESC";
@@ -98,6 +139,14 @@ class StagingPaymentMatchDAO implements PaymentMatchRepositoryInterface
         }
     }
 
+    /**
+     * Get the most recent match record for a staging payment.
+     *
+     * @param int $stagingPaymentId
+     * @return StagingPaymentMatch|null
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-001 getLatestByPaymentId
+     */
     public function getLatestByPaymentId(int $stagingPaymentId): ?StagingPaymentMatch
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE staging_payment_id = ? ORDER BY created_at DESC LIMIT 1";

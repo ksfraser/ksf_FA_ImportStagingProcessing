@@ -3,6 +3,22 @@ declare(strict_types=1);
 
 namespace ksfraser\FrontAccounting\ImportStaging\Models;
 
+/**
+ * Data model for a unified staged transaction from any import source.
+ *
+ * Carries normalized transaction fields (total_amount, currency, dates,
+ * customer info) plus FA invoice/debtor mapping and match confidence.
+ * Status lifecycle: staged → validated → matched → processed → failed.
+ *
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-002-001 staging_transactions table
+ * @BABOK Related: FR-ISU-002-002 normalized common fields
+ * @BABOK Related: FR-ISU-002-003 source column
+ * @BABOK Related: FR-ISU-005-001 source_transaction_id duplicate detection
+ * @BABOK Related: FR-ISU-009-001 matching input
+ * @BABOK Related: FR-ISU-012-001 fa_invoice_no / fa_debtor_no mapping
+ * @BABOK Related: NFR-ISU-003 TB_PREF convention
+ */
 class StagingTransaction
 {
     private ?int $id;
@@ -30,6 +46,11 @@ class StagingTransaction
     private ?\DateTimeInterface $createdAt;
     private ?\DateTimeInterface $updatedAt;
 
+    /**
+     * @param string $source
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-003 source field
+     */
     public function __construct(string $source)
     {
         $this->source = $source;
@@ -58,77 +79,319 @@ class StagingTransaction
         $this->updatedAt = null;
     }
 
+    /**
+     * @return ?int
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-001 id field
+     */
     public function getId(): ?int { return $this->id; }
+    /**
+     * @param int $id
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-001 id field
+     */
     public function setId(int $id): void { $this->id = $id; }
 
+    /**
+     * @return string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-003 source field
+     */
     public function getSource(): string { return $this->source; }
 
+    /**
+     * @return ?string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-001 source_transaction_id field
+     */
     public function getSourceTransactionId(): ?string { return $this->sourceTransactionId; }
+    /**
+     * @param ?string $id
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-001 source_transaction_id field
+     */
     public function setSourceTransactionId(?string $id): void { $this->sourceTransactionId = $id; }
 
+    /**
+     * @return ?string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 source_order_id field
+     */
     public function getSourceOrderId(): ?string { return $this->sourceOrderId; }
+    /**
+     * @param ?string $id
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 source_order_id field
+     */
     public function setSourceOrderId(?string $id): void { $this->sourceOrderId = $id; }
 
+    /**
+     * @return ?string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-003-002 source_payment_id field
+     */
     public function getSourcePaymentId(): ?string { return $this->sourcePaymentId; }
+    /**
+     * @param ?string $id
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-003-002 source_payment_id field
+     */
     public function setSourcePaymentId(?string $id): void { $this->sourcePaymentId = $id; }
 
+    /**
+     * @return ?\DateTimeInterface
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 transaction_date field
+     */
     public function getTransactionDate(): ?\DateTimeInterface { return $this->transactionDate; }
+    /**
+     * @param ?\DateTimeInterface $date
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 transaction_date field
+     */
     public function setTransactionDate(?\DateTimeInterface $date): void { $this->transactionDate = $date; }
 
+    /**
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 total_amount field
+     */
     public function getTotalAmount(): float { return $this->totalAmount; }
+    /**
+     * @param float $amount
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 total_amount field
+     */
     public function setTotalAmount(float $amount): void { $this->totalAmount = $amount; }
 
+    /**
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 tax_amount field
+     */
     public function getTaxAmount(): float { return $this->taxAmount; }
+    /**
+     * @param float $amount
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 tax_amount field
+     */
     public function setTaxAmount(float $amount): void { $this->taxAmount = $amount; }
 
+    /**
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 tip_amount field
+     */
     public function getTipAmount(): float { return $this->tipAmount; }
+    /**
+     * @param float $amount
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 tip_amount field
+     */
     public function setTipAmount(float $amount): void { $this->tipAmount = $amount; }
 
+    /**
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 discount_amount field
+     */
     public function getDiscountAmount(): float { return $this->discountAmount; }
+    /**
+     * @param float $amount
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 discount_amount field
+     */
     public function setDiscountAmount(float $amount): void { $this->discountAmount = $amount; }
 
+    /**
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 shipping_amount field
+     */
     public function getShippingAmount(): float { return $this->shippingAmount; }
+    /**
+     * @param float $amount
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 shipping_amount field
+     */
     public function setShippingAmount(float $amount): void { $this->shippingAmount = $amount; }
 
+    /**
+     * @return string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 currency field
+     */
     public function getCurrency(): string { return $this->currency; }
+    /**
+     * @param string $currency
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 currency field
+     */
     public function setCurrency(string $currency): void { $this->currency = $currency; }
 
+    /**
+     * @return ?string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 customer_name field
+     */
     public function getCustomerName(): ?string { return $this->customerName; }
+    /**
+     * @param ?string $name
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 customer_name field
+     */
     public function setCustomerName(?string $name): void { $this->customerName = $name; }
 
+    /**
+     * @return ?string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 customer_email field
+     */
     public function getCustomerEmail(): ?string { return $this->customerEmail; }
+    /**
+     * @param ?string $email
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 customer_email field
+     */
     public function setCustomerEmail(?string $email): void { $this->customerEmail = $email; }
 
+    /**
+     * @return ?string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 customer_id field
+     */
     public function getCustomerId(): ?string { return $this->customerId; }
+    /**
+     * @param ?string $id
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 customer_id field
+     */
     public function setCustomerId(?string $id): void { $this->customerId = $id; }
 
+    /**
+     * @return ?string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 raw_json field
+     */
     public function getRawJson(): ?string { return $this->rawJson; }
+    /**
+     * @param ?string $json
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 raw_json field
+     */
     public function setRawJson(?string $json): void { $this->rawJson = $json; }
 
+    /**
+     * @return string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-001 status field
+     */
     public function getStatus(): string { return $this->status; }
+    /**
+     * @param string $status
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-001 status field
+     */
     public function setStatus(string $status): void { $this->status = $status; }
 
+    /**
+     * @return ?float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-001 match_confidence field
+     */
     public function getMatchConfidence(): ?float { return $this->matchConfidence; }
+    /**
+     * @param ?float $confidence
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-001 match_confidence field
+     */
     public function setMatchConfidence(?float $confidence): void { $this->matchConfidence = $confidence; }
 
+    /**
+     * @return ?int
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 fa_invoice_no field
+     */
     public function getFaInvoiceNo(): ?int { return $this->faInvoiceNo; }
+    /**
+     * @param ?int $no
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 fa_invoice_no field
+     */
     public function setFaInvoiceNo(?int $no): void { $this->faInvoiceNo = $no; }
 
+    /**
+     * @return ?int
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 fa_debtor_no field
+     */
     public function getFaDebtorNo(): ?int { return $this->faDebtorNo; }
+    /**
+     * @param ?int $no
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 fa_debtor_no field
+     */
     public function setFaDebtorNo(?int $no): void { $this->faDebtorNo = $no; }
 
+    /**
+     * @return ?string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 error_log field
+     */
     public function getErrorLog(): ?string { return $this->errorLog; }
+    /**
+     * @param ?string $log
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 error_log field
+     */
     public function setErrorLog(?string $log): void { $this->errorLog = $log; }
 
+    /**
+     * @return ?\DateTimeInterface
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 created_at field
+     */
     public function getCreatedAt(): ?\DateTimeInterface { return $this->createdAt; }
+    /**
+     * @param ?\DateTimeInterface $dt
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 created_at field
+     */
     public function setCreatedAt(?\DateTimeInterface $dt): void { $this->createdAt = $dt; }
 
+    /**
+     * @return ?\DateTimeInterface
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 updated_at field
+     */
     public function getUpdatedAt(): ?\DateTimeInterface { return $this->updatedAt; }
+    /**
+     * @param ?\DateTimeInterface $dt
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 updated_at field
+     */
     public function setUpdatedAt(?\DateTimeInterface $dt): void { $this->updatedAt = $dt; }
 
+    /**
+     * @return ?\DateTimeInterface
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-003 source_updated_at field
+     */
     public function getSourceUpdatedAt(): ?\DateTimeInterface { return $this->sourceUpdatedAt; }
+    /**
+     * @param ?\DateTimeInterface $dt
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-003 source_updated_at field
+     */
     public function setSourceUpdatedAt(?\DateTimeInterface $dt): void { $this->sourceUpdatedAt = $dt; }
 
+    /**
+     * Serialize the transaction to an associative array for DAO persistence.
+     *
+     * @return array<string, mixed>
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-001 full record serialization
+     */
     public function toArray(): array
     {
         return [
@@ -157,6 +420,14 @@ class StagingTransaction
         ];
     }
 
+    /**
+     * Hydrate a transaction from an associative array (DAO result set).
+     *
+     * @param array $data Row data from the database
+     * @return self
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-001 full record hydration
+     */
     public static function fromArray(array $data): self
     {
         $txn = new self($data['source'] ?? 'unknown');

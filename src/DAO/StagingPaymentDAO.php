@@ -6,12 +6,36 @@ namespace ksfraser\FrontAccounting\ImportStaging\DAO;
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingPayment;
 use ksfraser\FrontAccounting\ImportStaging\Contracts\PaymentRepositoryInterface;
 
+/**
+ * DAO for the staging_payments table.
+ *
+ * Implements PaymentRepositoryInterface. Provides CRUD and query operations
+ * for unified payment staging records from all import sources.
+ *
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-003-001 staging_payments table
+ * @BABOK Related: FR-ISU-003-002 tenders, fees, net amounts
+ * @BABOK Related: FR-ISU-003-003 net_amount = amount − fee
+ * @BABOK Related: FR-ISU-005-002 duplicate detection (findBySource)
+ * @BABOK Related: FR-ISU-005-004 idempotent update (updateBySource)
+ * @BABOK Related: FR-ISU-013-001 reconciliation input
+ * @BABOK Related: FR-ISU-013-002 fa_trans_type / fa_trans_no mapping
+ * @BABOK Related: FR-ISU-017-001 0_ company prefix
+ * @BABOK Related: NFR-ISU-003 TB_PREF convention
+ * @BABOK Related: NFR-ISU-009 Repository pattern
+ */
 class StagingPaymentDAO implements PaymentRepositoryInterface
 {
     private string $tablePrefix;
     private string $tableName;
     private \ksf_ModulesDAO $db;
 
+    /**
+     * @param string $tablePrefix
+     * @param \ksf_ModulesDAO $db
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-003-001 table name construction
+     */
     public function __construct(string $tablePrefix, \ksf_ModulesDAO $db)
     {
         $this->tablePrefix = $tablePrefix;
@@ -19,6 +43,12 @@ class StagingPaymentDAO implements PaymentRepositoryInterface
         $this->db = $db;
     }
 
+    /**
+     * Ensure the staging_payments table exists (idempotent CREATE).
+     *
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-017-001 install schema
+     */
     public function ensureTableExists(): void
     {
         $sql = "CREATE TABLE IF NOT EXISTS {$this->tableName} (
@@ -60,6 +90,14 @@ class StagingPaymentDAO implements PaymentRepositoryInterface
         $this->db->query($sql);
     }
 
+    /**
+     * Insert a new staging payment.
+     *
+     * @param StagingPayment $payment
+     * @return int
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-003-001 insert
+     */
     public function insert(StagingPayment $payment): int
     {
         $this->ensureTableExists();
@@ -100,6 +138,15 @@ class StagingPaymentDAO implements PaymentRepositoryInterface
         return $row ? StagingPayment::fromArray($row) : null;
     }
 
+    /**
+     * Find a staging payment by source + source_payment_id (duplicate check).
+     *
+     * @param string $source
+     * @param string $sourcePaymentId
+     * @return StagingPayment|null
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-002 findBySource
+     */
     public function findBySource(string $source, string $sourcePaymentId): ?StagingPayment
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE source = ? AND source_payment_id = ?";
@@ -131,6 +178,14 @@ class StagingPaymentDAO implements PaymentRepositoryInterface
         return array_map(fn($row) => StagingPayment::fromArray($row), $rows);
     }
 
+    /**
+     * Find all staging payments linked to a staging transaction.
+     *
+     * @param int $stagingTransactionId
+     * @return StagingPayment[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-003-001 findByTransaction
+     */
     public function findByTransaction(int $stagingTransactionId): array
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE staging_transaction_id = ? ORDER BY amount DESC";
@@ -138,6 +193,16 @@ class StagingPaymentDAO implements PaymentRepositoryInterface
         return array_map(fn($row) => StagingPayment::fromArray($row), $rows);
     }
 
+    /**
+     * Update the status and optional confidence/error of a staging payment.
+     *
+     * @param int         $id
+     * @param string      $status
+     * @param float|null  $confidence
+     * @param string|null $error
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 updateStatus
+     */
     public function updateStatus(int $id, string $status, ?float $confidence = null, ?string $error = null): void
     {
         $fields = ['status = ?'];
@@ -155,6 +220,16 @@ class StagingPaymentDAO implements PaymentRepositoryInterface
         $this->db->query($sql, $params);
     }
 
+    /**
+     * Write the FA payment reference onto a staging payment.
+     *
+     * @param int $id
+     * @param int $faTransType
+     * @param int $faTransNo
+     * @param string|null $faBankAccount
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 updateFaReference
+     */
     public function updateFaReference(int $id, int $faTransType, int $faTransNo, ?string $faBankAccount = null): void
     {
         if ($faBankAccount !== null) {
@@ -166,6 +241,14 @@ class StagingPaymentDAO implements PaymentRepositoryInterface
         }
     }
 
+    /**
+     * Count staging payments grouped by status.
+     *
+     * @param string|null $source
+     * @return array<string,int>
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-003-001 countByStatus
+     */
     public function countByStatus(?string $source = null): array
     {
         if ($source) {
@@ -182,6 +265,14 @@ class StagingPaymentDAO implements PaymentRepositoryInterface
         return $result;
     }
 
+    /**
+     * Update a staging payment by source + source_payment_id (idempotent upsert).
+     *
+     * @param StagingPayment $payment
+     * @return bool
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-004 updateBySource
+     */
     public function updateBySource(StagingPayment $payment): bool
     {
         $sql = "UPDATE {$this->tableName} SET
@@ -219,6 +310,15 @@ class StagingPaymentDAO implements PaymentRepositoryInterface
         return $this->db->affectedRows() > 0;
     }
 
+    /**
+     * Get payments ready for reconciliation (staged, validated, or matched).
+     *
+     * @param string|null $source
+     * @param int $limit
+     * @return StagingPayment[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-001 getQueueForReconciliation
+     */
     public function getQueueForReconciliation(?string $source = null, int $limit = 100): array
     {
         $conditions = ["status IN ('staged', 'validated', 'matched')"];

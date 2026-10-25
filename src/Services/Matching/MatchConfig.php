@@ -6,25 +6,14 @@ namespace ksfraser\FrontAccounting\ImportStaging\Services\Matching;
 /**
  * MatchConfig — tunables for duplicate detection.
  *
- * Modelled on ksf_bank_import's `duplicate_window_days` setting, which is passed
- * into its candidate query rather than hardcoded. Two deliberate differences:
+ * Modelled on ksf_bank_import's `duplicate_window_days` setting. Two-sided
+ * window (+/- N days), absolute amount tolerance. Values resolve from FA
+ * company preferences when available; documented defaults apply otherwise.
  *
- *  - The window is TWO-SIDED (+/- N days). bank_import's duplicate-file check is
- *    one-sided (`upload_date >= DATE_SUB(NOW(), INTERVAL N DAY)`), which is
- *    right for "have I already uploaded this file" but wrong here: a source
- *    system can report a transaction dated slightly in the future relative to
- *    FA (timezone skew, delayed capture), and a one-sided window would silently
- *    miss those.
- *  - Amount tolerance is absolute (currency units), not the percentage the
- *    existing matchAmount() uses, because payment matching needs "the same
- *    amount" to be a hard gate rather than a soft score.
- *
- * Values resolve from FA company preferences when available, so they can be
- * tuned per company without a redeploy; otherwise the documented defaults apply.
- *
- * PHP 7.3 compatible: no typed properties, no property promotion.
- *
- * @package ksf_FA_ImportStagingProcessing
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-010-002 threshold configurable (autoApprove)
+ * @BABOK Related: FR-ISU-011-002 threshold configurable (review)
+ * @BABOK Related: NFR-ISU-005 matching window + tolerance
  */
 class MatchConfig
 {
@@ -62,6 +51,8 @@ class MatchConfig
 
     /**
      * @param array $overrides Optional key => value overrides
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-010-002 constructor
      */
     public function __construct(array $overrides = array())
     {
@@ -108,25 +99,37 @@ class MatchConfig
         );
     }
 
-    /** @return int */
+    /** @return int
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-010-002 getWindowDays
+     */
     public function getWindowDays()
     {
         return $this->windowDays;
     }
 
-    /** @return float */
+    /** @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-010-002 getAmountTolerance
+     */
     public function getAmountTolerance()
     {
         return $this->amountTolerance;
     }
 
-    /** @return float */
+    /** @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-010-001 getAutoApproveThreshold
+     */
     public function getAutoApproveThreshold()
     {
         return $this->autoApprove;
     }
 
-    /** @return float */
+    /** @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-011-001 getReviewThreshold
+     */
     public function getReviewThreshold()
     {
         return $this->review;
@@ -138,7 +141,10 @@ class MatchConfig
         return $this->lineThreshold;
     }
 
-    /** @return bool */
+    /** @return bool
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 usesSoundex
+     */
     public function usesSoundex()
     {
         return $this->nameSoundex;

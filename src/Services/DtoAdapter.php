@@ -24,8 +24,16 @@ use ksfraser\FrontAccounting\ImportStaging\Contracts\PaymentRepositoryInterface;
 /**
  * Adapter converting ksfraser/staging-dto DTOs to arrays for StagingService.
  *
- * @package Ksfraser\FrontAccounting\ImportStaging\Services
+ * Dispatches on DTO type (order, invoice, payment, refund, subscription,
+ * customer, product, product_variant, category) and routes to the
+ * appropriate stagingOrUpdate method. Throws InvalidArgumentException for
+ * unsupported DTO types.
+ *
  * @since 1.1.0
+ * @BABOK Related: FR-ISU-009-001 DTO-based staging dispatch
+ * @BABOK Related: FR-ISU-009-002 stageEntity polymorphic entry point
+ * @BABOK Related: FR-ISU-005-007 stagingExists duplicate check
+ * @BABOK Related: NFR-ISU-009 Adapter pattern
  */
 class DtoAdapter
 {
@@ -34,6 +42,14 @@ class DtoAdapter
     private CustomerRepositoryInterface $customerDAO;
     private PaymentRepositoryInterface $paymentDAO;
 
+    /**
+     * @param StagingService $stagingService
+     * @param TransactionRepositoryInterface $transactionDAO
+     * @param CustomerRepositoryInterface $customerDAO
+     * @param PaymentRepositoryInterface $paymentDAO
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-009-001 constructor
+     */
     public function __construct(
         StagingService $stagingService,
         TransactionRepositoryInterface $transactionDAO,
@@ -52,6 +68,17 @@ class DtoAdapter
      * @param StagingEntity $dto The DTO to stage
      * @return StagingExistsResult Existence result after staging
      * @throws \InvalidArgumentException If DTO type not supported
+     */
+    /**
+     * Stage any DTO subclass via StagingService.
+     *
+     * Routes to type-specific staging method based on DTO class.
+     *
+     * @param StagingEntity $dto The DTO to stage
+     * @return StagingExistsResult Existence result after staging
+     * @throws \InvalidArgumentException If DTO type not supported
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-009-002 stageEntity
      */
     public function stageEntity(StagingEntity $dto): StagingExistsResult
     {
@@ -94,6 +121,16 @@ class DtoAdapter
      * @param StagingExistsQuery $query The query
      * @return StagingExistsResult Existence result
      */
+    /**
+     * Check staging existence via query DTO.
+     *
+     * Routes to type-specific existence check based on entity type.
+     *
+     * @param StagingExistsQuery $query The query
+     * @return StagingExistsResult Existence result
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-005-007 stagingExists
+     */
     public function stagingExists(StagingExistsQuery $query): StagingExistsResult
     {
         $source = $query->getSource();
@@ -114,6 +151,14 @@ class DtoAdapter
         }
     }
 
+    /**
+     * Stage a StagingOrder DTO via stageOrUpdateTransaction.
+     *
+     * @param StagingOrder $dto
+     * @return StagingExistsResult
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-002-001 stageOrder
+     */
     private function stageOrder(StagingOrder $dto): StagingExistsResult
     {
         $data = $this->transactionToArray($dto);
@@ -135,6 +180,14 @@ class DtoAdapter
         }
     }
 
+    /**
+     * Stage a StagingInvoice DTO via stageOrUpdateTransaction.
+     *
+     * @param StagingInvoice $dto
+     * @return StagingExistsResult
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-002-001 stageInvoice
+     */
     private function stageInvoice(StagingInvoice $dto): StagingExistsResult
     {
         $data = $this->transactionToArray($dto);
@@ -155,6 +208,14 @@ class DtoAdapter
         }
     }
 
+    /**
+     * Stage a StagingPayment DTO via stageOrUpdatePayment.
+     *
+     * @param StagingPayment $dto
+     * @return StagingExistsResult
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-003-001 stagePaymentDto
+     */
     private function stagePaymentDto(StagingPayment $dto): StagingExistsResult
     {
         $data = [
@@ -182,6 +243,14 @@ class DtoAdapter
         }
     }
 
+    /**
+     * Stage a StagingRefund DTO via stageOrUpdateTransaction.
+     *
+     * @param StagingRefund $dto
+     * @return StagingExistsResult
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-002-001 stageRefund
+     */
     private function stageRefund(StagingRefund $dto): StagingExistsResult
     {
         $data = $this->transactionToArray($dto);
@@ -202,6 +271,14 @@ class DtoAdapter
         }
     }
 
+    /**
+     * Stage a StagingSubscription DTO via stageOrUpdateTransaction.
+     *
+     * @param StagingSubscription $dto
+     * @return StagingExistsResult
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-002-001 stageSubscription
+     */
     private function stageSubscription(StagingSubscription $dto): StagingExistsResult
     {
         $data = $this->transactionToArray($dto);
@@ -223,6 +300,14 @@ class DtoAdapter
         }
     }
 
+    /**
+     * Stage a StagingCustomer DTO via stageOrUpdateCustomer.
+     *
+     * @param StagingCustomer $dto
+     * @return StagingExistsResult
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-001-001 stageCustomerDto
+     */
     private function stageCustomerDto(StagingCustomer $dto): StagingExistsResult
     {
         $name = trim(implode(' ', array_filter([
@@ -255,6 +340,14 @@ class DtoAdapter
         }
     }
 
+    /**
+     * Stage a StagingProduct DTO via stageOrUpdateTransaction.
+     *
+     * @param StagingProduct $dto
+     * @return StagingExistsResult
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-002-001 stageProduct
+     */
     private function stageProduct(StagingProduct $dto): StagingExistsResult
     {
         $data = [
@@ -285,6 +378,14 @@ class DtoAdapter
         }
     }
 
+    /**
+     * Stage a StagingProductVariant DTO via stageOrUpdateTransaction.
+     *
+     * @param StagingProductVariant $dto
+     * @return StagingExistsResult
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-002-001 stageProductVariant
+     */
     private function stageProductVariant(StagingProductVariant $dto): StagingExistsResult
     {
         $data = [
@@ -313,6 +414,14 @@ class DtoAdapter
         }
     }
 
+    /**
+     * Stage a StagingCategory DTO via stageOrUpdateTransaction.
+     *
+     * @param StagingCategory $dto
+     * @return StagingExistsResult
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-002-001 stageCategory
+     */
     private function stageCategory(StagingCategory $dto): StagingExistsResult
     {
         $data = [
@@ -339,6 +448,14 @@ class DtoAdapter
         }
     }
 
+    /**
+     * Convert a StagingTransaction DTO to a transaction data array.
+     *
+     * @param StagingTransaction $dto
+     * @return array
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-002-001 transactionToArray
+     */
     private function transactionToArray(StagingTransaction $dto): array
     {
         return [
@@ -352,6 +469,14 @@ class DtoAdapter
         ];
     }
 
+    /**
+     * Convert StagingLineItem DTOs to an array of line item data.
+     *
+     * @param array $lineItems
+     * @return array
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-004-001 lineItemsToArray
+     */
     private function lineItemsToArray(array $lineItems): array
     {
         $result = [];
@@ -374,6 +499,15 @@ class DtoAdapter
         return $result;
     }
 
+    /**
+     * Check whether a transaction exists for source + source_id.
+     *
+     * @param string $source
+     * @param string $sourceId
+     * @return StagingExistsResult
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-005-007 checkTransactionExists
+     */
     private function checkTransactionExists(string $source, string $sourceId): StagingExistsResult
     {
         $existing = $this->transactionDAO->findBySource($source, $sourceId);
@@ -388,6 +522,15 @@ class DtoAdapter
         return new StagingExistsResult(false, 0, '', 'Transaction not found');
     }
 
+    /**
+     * Check whether a customer exists for source + source_id.
+     *
+     * @param string $source
+     * @param string $sourceId
+     * @return StagingExistsResult
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-005-007 checkCustomerExists
+     */
     private function checkCustomerExists(string $source, string $sourceId): StagingExistsResult
     {
         $existing = $this->customerDAO->findBySource($source, $sourceId);
@@ -402,6 +545,15 @@ class DtoAdapter
         return new StagingExistsResult(false, 0, '', 'Customer not found');
     }
 
+    /**
+     * Check whether a payment exists for source + source_id.
+     *
+     * @param string $source
+     * @param string $sourceId
+     * @return StagingExistsResult
+     * @since 1.1.0
+     * @BABOK Related: FR-ISU-005-007 checkPaymentExists
+     */
     private function checkPaymentExists(string $source, string $sourceId): StagingExistsResult
     {
         $existing = $this->paymentDAO->findBySource($source, $sourceId);

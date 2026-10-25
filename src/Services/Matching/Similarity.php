@@ -6,14 +6,11 @@ namespace ksfraser\FrontAccounting\ImportStaging\Services\Matching;
 /**
  * Similarity — name comparison helpers for customer matching.
  *
- * Soundex is the primary tool here because import names arrive with inconsistent
- * spelling ("Lovelace" / "Lovalace", "Smith" / "Smyth", "Kowalski" / "Kowalsky")
- * that defeat exact and substring comparison. It folds those together while
- * still separating genuinely different names that merely share a first letter.
+ * Soundex-based name folding for inconsistent import spelling, combined with
+ * character-level (levenshtein) similarity ratio.
  *
- * PHP 7.3 compatible: no typed properties, no property promotion.
- *
- * @package ksf_FA_ImportStagingProcessing
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-009-002 name similarity scoring
  */
 class Similarity
 {
@@ -22,6 +19,8 @@ class Similarity
      *
      * @param string $value
      * @return string 4-character code, or '' if uncodeable
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 soundex
      */
     public function soundex($value)
     {
@@ -69,6 +68,8 @@ class Similarity
      * @param string $a
      * @param string $b
      * @return bool False when either side cannot be coded
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 soundexMatches
      */
     public function soundexMatches($a, $b)
     {
@@ -85,13 +86,13 @@ class Similarity
     /**
      * Similarity of the surname component, 0.0 - 1.0.
      *
-     * Combines soundex equality (strong) with a character-level ratio, so
-     * "Lovelace"/"Lovalace" scores high on both while "Smith"/"Jones" scores low
-     * on both.
+     * Combines soundex equality with a character-level ratio.
      *
      * @param string $a
      * @param string $b
      * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 nameSimilarity
      */
     public function nameSimilarity($a, $b)
     {
@@ -116,14 +117,13 @@ class Similarity
     }
 
     /**
-     * Character-level similarity, 0.0 - 1.0.
-     *
-     * Levenshtein-based: (longer - distance) / longer. The implementation is
-     * iterative over two rows to stay within memory on long inputs.
+     * Character-level similarity, 0.0 - 1.0 (levenshtein-based).
      *
      * @param string $a
      * @param string $b
      * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 ratio
      */
     public function ratio($a, $b)
     {

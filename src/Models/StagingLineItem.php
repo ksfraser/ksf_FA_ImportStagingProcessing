@@ -7,11 +7,13 @@ namespace ksfraser\FrontAccounting\ImportStaging\Models;
  * Represents a staged line item belonging to a staging_transaction.
  *
  * Each line item carries source, source_id, and source_updated_at for
- * versioning/upsert. Source-specific fields beyond the core schema
- * are stored in staging_line_item_attributes (name-value pairs).
+ * versioning/upsert. Source-specific fields beyond the core schema are
+ * stored in attributes (name-value pairs).
  *
- * @requirement FR-06 Line Item Staging
- * @UML Note: Part of staging model in ProjectDocs/UML.md
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-004-001 line items linked to parent transaction
+ * @BABOK Related: FR-ISU-004-002 staging_transaction_id foreign key
+ * @BABOK Related: NFR-ISU-003 TB_PREF convention
  */
 class StagingLineItem
 {
@@ -61,6 +63,10 @@ class StagingLineItem
         $this->updatedAt = null;
     }
 
+    /**
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 line item creation
+     */
     public static function fromArray(array $data): self
     {
         $item = new self();
@@ -106,6 +112,11 @@ class StagingLineItem
         return $item;
     }
 
+    /**
+     * @return array<string, mixed>
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 line item serialization
+     */
     public function toArray(): array
     {
         return [

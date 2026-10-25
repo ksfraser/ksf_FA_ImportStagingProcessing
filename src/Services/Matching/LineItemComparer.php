@@ -6,27 +6,13 @@ namespace ksfraser\FrontAccounting\ImportStaging\Services\Matching;
 /**
  * LineItemComparer — compares staged order lines against an FA invoice's lines.
  *
- * WHY THIS EXISTS. Matching an imported Woo/Square order to an existing FA
- * invoice on totals alone is unreliable. The two sides legitimately compute
- * different figures for the same order: FA may add freight, round tax per line
- * versus per invoice, apply a sales discount, or carry a coupon that the source
- * system folded into its line prices. Two invoices for the same order can
- * therefore differ in total while being obviously the same order.
+ * Two-stage matching: shortlist by debtor/date/total, then score line agreement
+ * (stock, quantity, price, discount). A candidate matches only when line score
+ * reaches MatchConfig::getLineThreshold().
  *
- * So matching is TWO-STAGE, exactly as the import review requires:
- *
- *   1. Fetch candidates cheaply — debtor, date window, and a loose total
- *      tolerance. This is a shortlist, never a verdict.
- *   2. Score the shortlist on LINE AGREEMENT: same stock codes, same quantities,
- *      same unit prices, and compatible discounts. The best line score decides.
- *
- * A candidate is only reported as the same invoice when its line score reaches
- * `MatchConfig::getLineThreshold()`. Totals contribute to the score but cannot
- * on their own confirm a match.
- *
- * PHP 7.3 compatible: no typed properties, no property promotion.
- *
- * @package ksf_FA_ImportStagingProcessing
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-009-002 line item agreement scoring
+ * @BABOK Related: FR-ISU-005-006 three-way match support
  */
 class LineItemComparer
 {
@@ -42,6 +28,11 @@ class LineItemComparer
     /** @var Similarity */
     private $similarity;
 
+    /**
+     * @param Similarity $similarity
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 constructor
+     */
     public function __construct(Similarity $similarity = null)
     {
         $this->similarity = $similarity !== null ? $similarity : new Similarity();
@@ -59,6 +50,16 @@ class LineItemComparer
      * @param float $priceTolerance Absolute per-unit tolerance
      * @return array ['score'=>float, 'matched'=>int, 'staged_count'=>int,
      *               'lines'=>[per-line detail], 'unmatched'=>[staged lines]]
+     */
+    /**
+     * Score how closely staged lines match an existing invoice's lines.
+     *
+     * @param array $stagedLines
+     * @param array $existingLines
+     * @param float $priceTolerance
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 compare
      */
     public function compare(array $stagedLines, array $existingLines, $priceTolerance = 0.01)
     {
@@ -133,6 +134,16 @@ class LineItemComparer
      * @param array $existingLines
      * @param MatchConfig $config
      * @return bool
+     */
+    /**
+     * Whether two line sets agree closely enough to be the same order.
+     *
+     * @param array $stagedLines
+     * @param array $existingLines
+     * @param MatchConfig $config
+     * @return bool
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 isSameOrder
      */
     public function isSameOrder(array $stagedLines, array $existingLines, MatchConfig $config)
     {

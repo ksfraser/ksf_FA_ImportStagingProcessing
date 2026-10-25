@@ -1,6 +1,30 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * FA extension hooks for ksf_FA_ImportStagingProcessing.
+ *
+ * Implements the standard 4-method discovery contract
+ * (getModuleConstants, getModuleCapabilities, hasCapability,
+ * respondToCapabilityRequest) plus STAGE_* / STAGING_EXISTS DTO-based
+ * responders and STAGE_CUSTOMER / STAGE_TRANSACTION / STAGE_PAYMENT /
+ * PROCESS_STAGING event handlers.
+ *
+ * All DB access goes through native FA db_* calls via ksf_ModulesDAO —
+ * PDO is never used at FA runtime (HARD RULE per AGENTS_ARCH.md §10).
+ *
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-018-001 getModuleConstants
+ * @BABOK Related: FR-ISU-019-001 getModuleCapabilities
+ * @BABOK Related: FR-ISU-020-001 hasCapability
+ * @BABOK Related: FR-ISU-020-002 respondToCapabilityRequest
+ * @BABOK Related: FR-ISU-020-003 staging/matching/reconciliation/processing dispatch
+ * @BABOK Related: FR-ISU-009-002 STAGE_ENTITY / STAGING_EXISTS DTO responders
+ * @BABOK Related: FR-ISU-012-001 PROCESS_STAGING event handler
+ * @BABOK Related: FR-ISU-017-001 install schema via activate_extension
+ * @BABOK Related: NFR-ISU-007 @BABOK traceability
+ * @BABOK Related: NFR-ISU-010 native db_* calls only
+ */
 define('SS_ksf_FA_ImportStagingProcessing', 109 << 8);
 
 define('KSF_IMPORT_STAGING_MODULE_NAME', 'ksf_FA_ImportStagingProcessing');
@@ -23,6 +47,15 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         return $constants;
     }
 
+    /**
+     * Return capability definitions with methods and events.
+     *
+     * @param array &$data
+     * @param array|null $opts
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-019-001 getModuleCapabilities
+     */
     public function getModuleCapabilities(&$data, $opts = null)
     {
         $capabilities = [
@@ -56,6 +89,15 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         return $capabilities;
     }
 
+    /**
+     * Report whether a capability is supported.
+     *
+     * @param array &$data
+     * @param array|null $opts
+     * @return bool
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-020-001 hasCapability
+     */
     public function hasCapability(&$data, $opts = null)
     {
         $capability = $opts['capability'] ?? $data['capability'] ?? null;
@@ -71,6 +113,17 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         return $hasCapability;
     }
 
+    /**
+     * Dispatch capability requests (staging:*, matching:*, reconciliation:*,
+     * processing:*, mapping:*, audit:*).
+     *
+     * @param array &$data
+     * @param array|null $opts
+     * @return array|null
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-020-002 respondToCapabilityRequest
+     * @BABOK Related: FR-ISU-020-003 request dispatch
+     */
     public function respondToCapabilityRequest(&$data, $opts = null)
     {
         $request = $opts['request'] ?? $data['request'] ?? 'capabilities';
@@ -321,19 +374,19 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
     }
 
     /**
-     * PROCESS_STAGING — Event handler invoked via hook_invoke_first()
+     * PROCESS_STAGING — Event handler invoked via hook_invoke_first().
      *
      * Processes all staged customers, transactions, and payments into FA.
      * Delegates to ksf_FA_Customer and ksf_FA_Payment modules via
      * CREATE_CUSTOMER and CREATE_PAYMENT events.
      *
-     * Called by:
-     *   $data = ['source' => 'woocommerce'];  // optional filter
-     *   $result = hook_invoke_first('PROCESS_STAGING', $data);
-     *
      * @param array &$data Optional source filter
      * @param array|null $opts Options
      * @return array Result summary
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 PROCESS_STAGING
+     * @BABOK Related: FR-ISU-012-002 CREATE_CUSTOMER delegation
+     * @BABOK Related: FR-ISU-013-001 CREATE_PAYMENT delegation
      */
     public function PROCESS_STAGING(&$data, $opts = null)
     {
@@ -365,17 +418,16 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
     }
 
     /**
-     * STAGE_CUSTOMER — Event handler invoked via hook_invoke_first()
+     * STAGE_CUSTOMER — Event handler invoked via hook_invoke_first().
      *
      * Stages a customer record into the staging table for later processing.
-     *
-     * Called by:
-     *   $data = ['source' => 'woocommerce', 'customer' => ['name' => '...', 'email' => '...']];
-     *   $result = hook_invoke_first('STAGE_CUSTOMER', $data);
      *
      * @param array &$data Must contain 'source' and 'customer' keys
      * @param array|null $opts Options
      * @return array|null Serialized StagingCustomer or null on failure
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-001 STAGE_CUSTOMER
+     * @BABOK Related: FR-ISU-016-001 event logging
      */
     public function STAGE_CUSTOMER(&$data, $opts = null)
     {
@@ -406,17 +458,16 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
     }
 
     /**
-     * STAGE_TRANSACTION — Event handler invoked via hook_invoke_first()
+     * STAGE_TRANSACTION — Event handler invoked via hook_invoke_first().
      *
      * Stages a transaction record into the staging table for later processing.
-     *
-     * Called by:
-     *   $data = ['source' => 'square_api', 'transaction' => ['total_amount' => 100.00, ...]];
-     *   $result = hook_invoke_first('STAGE_TRANSACTION', $data);
      *
      * @param array &$data Must contain 'source' and 'transaction' keys
      * @param array|null $opts Options
      * @return array|null Serialized StagingTransaction or null on failure
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-001 STAGE_TRANSACTION
+     * @BABOK Related: FR-ISU-016-001 event logging
      */
     public function STAGE_TRANSACTION(&$data, $opts = null)
     {
@@ -447,18 +498,17 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
     }
 
     /**
-     * STAGE_PAYMENT — Event handler invoked via hook_invoke_first()
+     * STAGE_PAYMENT — Event handler invoked via hook_invoke_first().
      *
      * Stages a payment record into the staging table for later reconciliation
      * and processing.
      *
-     * Called by:
-     *   $data = ['source' => 'paypal', 'payment' => ['amount' => 50.00, ...]];
-     *   $result = hook_invoke_first('STAGE_PAYMENT', $data);
-     *
      * @param array &$data Must contain 'source' and 'payment' keys
      * @param array|null $opts Options
      * @return array|null Serialized StagingPayment or null on failure
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-003-001 STAGE_PAYMENT
+     * @BABOK Related: FR-ISU-016-001 event logging
      */
     public function STAGE_PAYMENT(&$data, $opts = null)
     {
@@ -494,16 +544,17 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
     /**
      * STAGE_ENTITY — Generic hook for staging any DTO subclass.
      *
-     * Accepts ksfraser/staging-dto DTOs and routes to appropriate staging method.
-     * Replaces type-specific STAGE_* events with one polymorphic entry point.
-     *
-     * Called by:
-     *   $dto = new StagingOrder('square', 'sq_123', 100.00, 'USD', 'completed', 'card');
-     *   $result = hook_invoke('ksf_FA_ImportStagingProcessing_UI', 'stageEntity', $dto);
+     * Accepts ksfraser/staging-dto DTOs and routes to appropriate staging
+     * method. Replaces type-specific STAGE_* events with one polymorphic entry
+     * point. Replaces $data wholesale (by-reference contract) rather than
+     * writing array offsets onto a DTO.
      *
      * @param mixed &$data The DTO object (passed by reference for hook compatibility)
      * @param array|null $opts Options
      * @return array|null StagingExistsResult as array, or null on failure
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 STAGE_ENTITY
+     * @BABOK Related: FR-ISU-005-007 duplicate detection via DTO
      */
     public function STAGE_ENTITY(&$data, $opts = null)
     {
@@ -558,14 +609,13 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
      * STAGING_EXISTS — Check if a staging entity exists.
      *
      * Accepts a StagingExistsQuery DTO and returns StagingExistsResult.
-     *
-     * Called by:
-     *   $query = new StagingExistsQuery('square', 'sq_txn_123', 'transaction');
-     *   $result = hook_invoke('ksf_FA_ImportStagingProcessing_UI', 'stagingExists', $query);
+     * Replaces $data wholesale (by-reference contract).
      *
      * @param mixed &$data The query DTO object
      * @param array|null $opts Options
      * @return array|null StagingExistsResult as array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-007 STAGING_EXISTS
      */
     public function STAGING_EXISTS(&$data, $opts = null)
     {
@@ -851,6 +901,13 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
     {
     }
 
+    /**
+     * Install security sections and areas for the module.
+     *
+     * @return array [$security_areas, $security_sections]
+     * @since 2.0.0
+     * @BABOK Related: NFR-ISU-004 security areas
+     */
     function install_access()
     {
         $security_sections[SS_ksf_FA_ImportStagingProcessing] = _("Import Staging");
@@ -866,6 +923,17 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         return array($security_areas, $security_sections);
     }
 
+    /**
+     * Activate the extension: import install.sql schema via update_databases.
+     *
+     * @param int $company
+     * @param bool $check_only
+     * @return bool
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-017-001 activate_extension
+     * @BABOK Related: FR-ISU-017-002 ALTER TABLE only
+     * @BABOK Related: FR-ISU-017-003 check_table gate
+     */
     function activate_extension($company, $check_only = true)
     {
         if (file_exists(dirname(__FILE__) . '/sql/install.sql')) {
@@ -884,6 +952,12 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         global $path_to_root;
     }
 
+    /**
+     * Ensure composer dependencies are installed (vendor/autoload.php).
+     *
+     * @since 2.0.0
+     * @BABOK Related: NFR-ISU-002 FA 2.4.x integration
+     */
     private function ensure_composer_dependencies()
     {
         $module_dir = dirname(__FILE__);

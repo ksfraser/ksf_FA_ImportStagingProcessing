@@ -5,6 +5,24 @@ namespace ksfraser\FrontAccounting\ImportStaging\Services;
 
 use ksfraser\FrontAccounting\ImportStaging\Contracts\MatchingServiceInterface;
 
+/**
+ * Scoring-based matching service for staged records.
+ *
+ * Implements MatchingServiceInterface. Computes match confidence between
+ * staged records and existing FA records using weighted factors (amount,
+ * date, customer, reference). Provides auto-approve (>=95%) and
+ * needs-review (80-95%) thresholds.
+ *
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-009-001 matching algorithm
+ * @BABOK Related: FR-ISU-009-002 scoring-based matching
+ * @BABOK Related: FR-ISU-010-001 auto-approve >=95% threshold
+ * @BABOK Related: FR-ISU-010-002 threshold configurable
+ * @BABOK Related: FR-ISU-011-001 review 80-95% threshold
+ * @BABOK Related: FR-ISU-011-002 threshold configurable
+ * @BABOK Related: FR-ISU-013-002 payment match scoring (40/25/20/15)
+ * @BABOK Related: NFR-ISU-009 Strategy pattern
+ */
 class MatchingService implements MatchingServiceInterface
 {
     private float $autoApproveThreshold;
@@ -18,12 +36,31 @@ class MatchingService implements MatchingServiceInterface
     private const CUSTOMER_SCORE_CONTACT_NAME = 20.0;
     private const CUSTOMER_SCORE_ADDRESS = 15.0;
 
+    /**
+     * @param float $autoApproveThreshold
+     * @param float $reviewThreshold
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-010-001 autoApproveThreshold
+     * @BABOK Related: FR-ISU-011-001 reviewThreshold
+     */
     public function __construct(float $autoApproveThreshold = 0.95, float $reviewThreshold = 0.80)
     {
         $this->autoApproveThreshold = $autoApproveThreshold;
         $this->reviewThreshold = $reviewThreshold;
     }
 
+    /**
+     * Match a staged record against candidate existing records.
+     *
+     * Scores each candidate and returns the best match with confidence,
+     * match type, and top 5 candidates.
+     *
+     * @param array $stagedRecord
+     * @param array $existingRecords
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-001 matchCandidates
+     */
     public function matchCandidates(array $stagedRecord, array $existingRecords): array
     {
         if (empty($existingRecords)) {
@@ -54,24 +91,66 @@ class MatchingService implements MatchingServiceInterface
         ];
     }
 
+    /**
+     * Determine whether a confidence score qualifies for auto-approval (>=95%).
+     *
+     * @param float $confidence
+     * @return bool
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-010-001 autoApprove
+     */
     public function autoApprove(float $confidence): bool
     {
         return $confidence >= $this->autoApproveThreshold;
     }
 
+    /**
+     * Determine whether a confidence score needs manual review (80-95%).
+     *
+     * @param float $confidence
+     * @return bool
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-011-001 needsReview
+     */
     public function needsReview(float $confidence): bool
     {
         return $confidence >= $this->reviewThreshold && $confidence < $this->autoApproveThreshold;
     }
 
+    /**
+     * Approve a match by ID (no-op placeholder for interface compliance).
+     *
+     * @param string $matchId
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 approveMatch
+     */
     public function approveMatch(string $matchId): void
     {
     }
 
+    /**
+     * Reject a match by ID with a reason (no-op placeholder for interface compliance).
+     *
+     * @param string $matchId
+     * @param string $reason
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 rejectMatch
+     */
     public function rejectMatch(string $matchId, string $reason): void
     {
     }
 
+    /**
+     * Calculate the match score between a staged record and an existing record.
+     *
+     * Weights: amount 40%, date 25%, customer 25%, reference 10%.
+     *
+     * @param array $staged
+     * @param array $existing
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 calculateMatchScore
+     */
     public function calculateMatchScore(array $staged, array $existing): float
     {
         $score = 0.0;
@@ -95,6 +174,15 @@ class MatchingService implements MatchingServiceInterface
         return $totalWeight > 0 ? $score / $totalWeight : 0.0;
     }
 
+    /**
+     * Match two monetary amounts with 1% tolerance.
+     *
+     * @param float $amountA
+     * @param float $amountB
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 matchAmount
+     */
     public function matchAmount(float $amountA, float $amountB): float
     {
         if ($amountA == 0 && $amountB == 0) {
@@ -112,6 +200,15 @@ class MatchingService implements MatchingServiceInterface
         return max(0.0, 1.0 - ($diff / $max));
     }
 
+    /**
+     * Match two dates within a 1-day tolerance.
+     *
+     * @param string $dateA
+     * @param string $dateB
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 matchDate
+     */
     public function matchDate(string $dateA, string $dateB): float
     {
         try {
@@ -128,6 +225,15 @@ class MatchingService implements MatchingServiceInterface
         }
     }
 
+    /**
+     * Match staged records against existing records by customer fields.
+     *
+     * @param array $staged
+     * @param array $existingRecords
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 matchByCustomer
+     */
     public function matchByCustomer(array $staged, array $existingRecords): array
     {
         $candidates = [];
@@ -147,6 +253,15 @@ class MatchingService implements MatchingServiceInterface
         return $candidates;
     }
 
+    /**
+     * Calculate a customer match score (email/phone/name/address/weighted).
+     *
+     * @param array $staged
+     * @param array $existing
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 calculateCustomerMatchScore
+     */
     public function calculateCustomerMatchScore(array $staged, array $existing): float
     {
         $score = 0.0;
@@ -193,6 +308,15 @@ class MatchingService implements MatchingServiceInterface
         return min(100.0, $score);
     }
 
+    /**
+     * Fuzzy-match two strings (exact, substring, or levenshtein < 20%).
+     *
+     * @param string $a
+     * @param string $b
+     * @return bool
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 fuzzyMatch
+     */
     public function fuzzyMatch(string $a, string $b): bool
     {
         $a = strtolower(trim(preg_replace('/\s+/', ' ', $a)));
@@ -210,6 +334,15 @@ class MatchingService implements MatchingServiceInterface
         return $len > 0 && ($dist / $len) < 0.2;
     }
 
+    /**
+     * Match two addresses (substring containment either direction).
+     *
+     * @param string $addrA
+     * @param string $addrB
+     * @return bool
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 addressMatch
+     */
     public function addressMatch(string $addrA, string $addrB): bool
     {
         $normA = strtolower(trim(preg_replace('/\s+/', ' ', $addrA)));
@@ -217,6 +350,15 @@ class MatchingService implements MatchingServiceInterface
         return strpos($normA, $normB) !== false || strpos($normB, $normA) !== false;
     }
 
+    /**
+     * Match two names using similar_text percentage.
+     *
+     * @param string $nameA
+     * @param string $nameB
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 matchName
+     */
     public function matchName(string $nameA, string $nameB): float
     {
         $normalizedA = strtolower(trim(preg_replace('/\s+/', ' ', $nameA)));
@@ -229,6 +371,15 @@ class MatchingService implements MatchingServiceInterface
         return $similarity / 100.0;
     }
 
+    /**
+     * Match two phone numbers (exact or last-7-digit match).
+     *
+     * @param string $phoneA
+     * @param string $phoneB
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 matchPhone
+     */
     public function matchPhone(string $phoneA, string $phoneB): float
     {
         $cleanA = preg_replace('/[^0-9]/', '', $phoneA);
@@ -242,11 +393,31 @@ class MatchingService implements MatchingServiceInterface
         return 0.0;
     }
 
+    /**
+     * Exact match two strings (1.0 if equal, 0.0 otherwise).
+     *
+     * @param string $valueA
+     * @param string $valueB
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 exactMatch
+     */
     public function exactMatch(string $valueA, string $valueB): float
     {
         return $valueA === $valueB ? 1.0 : 0.0;
     }
 
+    /**
+     * Calculate a payment match score against an FA record.
+     *
+     * Weights: amount 40%, date 25%, reference 20%, method 15%.
+     *
+     * @param array $payment
+     * @param array $faRecord
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 calculatePaymentMatchScore
+     */
     public function calculatePaymentMatchScore(array $payment, array $faRecord): float
     {
         $score = 0.0;
@@ -272,6 +443,14 @@ class MatchingService implements MatchingServiceInterface
         return $totalWeight > 0 ? $score / $totalWeight : 0.0;
     }
 
+    /**
+     * Determine a payment match type from a score.
+     *
+     * @param float $score
+     * @return string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-014-001 determinePaymentMatchType
+     */
     public function determinePaymentMatchType(float $score): string
     {
         if ($score >= $this->autoApproveThreshold) {

@@ -14,10 +14,16 @@ use ksfraser\FrontAccounting\ImportStaging\Services\Dispatch\CreationInvoker;
 
 /**
  * Orchestrates the processing pipeline: takes matched/approved staging records
- * and creates corresponding FA entities via the Customer and Payment modules.
+ * and creates corresponding FA entities via capability-based hook dispatch
+ * (CREATE_CUSTOMER, CREATE_PAYMENT, CREATE_SALES_INVOICE).
  *
- * @requirement FR-02.05 Process approved matches
- * @UML Note: Part of ProcessingPipeline in ProjectDocs/UML.md
+ * ISU names the CAPABILITY, not the module — a future data-migration module
+ * can answer CREATE_CUSTOMER without ISU being edited.
+ *
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-012-001 process approved matches into FA
+ * @BABOK Related: FR-ISU-012-002 delegate debtor creation via CREATE_CUSTOMER
+ * @BABOK Related: NFR-ISU-009 Factory/Dispatch pattern
  */
 class ProcessingPipeline implements ProcessorInterface
 {
@@ -28,6 +34,15 @@ class ProcessingPipeline implements ProcessorInterface
     private AuditLogRepositoryInterface $logDAO;
     private array $processedIds;
 
+    /**
+     * @param CustomerRepositoryInterface $customerDAO
+     * @param TransactionRepositoryInterface $transactionDAO
+     * @param PaymentRepositoryInterface $paymentDAO
+     * @param LineItemRepositoryInterface $lineItemDAO
+     * @param AuditLogRepositoryInterface $logDAO
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 constructor
+     */
     public function __construct(
         CustomerRepositoryInterface $customerDAO,
         TransactionRepositoryInterface $transactionDAO,
@@ -43,6 +58,15 @@ class ProcessingPipeline implements ProcessorInterface
         $this->processedIds = [];
     }
 
+    /**
+     * Process a single staged record via the appropriate capability.
+     *
+     * @param array $record
+     * @param array $context
+     * @return ProcessingResult
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 process
+     */
     public function process(array $record, array $context = []): ProcessingResult
     {
         $type = $context['type'] ?? $record['_type'] ?? 'transaction';
@@ -57,6 +81,14 @@ class ProcessingPipeline implements ProcessorInterface
         }
     }
 
+    /**
+     * Determine whether a record can be processed (matched/approved/reconciled).
+     *
+     * @param array $record
+     * @return bool
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 canProcess
+     */
     public function canProcess(array $record): bool
     {
         $status = $record['status'] ?? '';
@@ -122,6 +154,15 @@ class ProcessingPipeline implements ProcessorInterface
      * Process the full queue: customers first, then transactions, then payments.
      * Only processes records in "approved" or "matched" status.
      */
+    /**
+     * Process the full queue: customers, then transactions, then payments.
+     * Only processes records in "approved" or "matched" status.
+     *
+     * @param string|null $source
+     * @return ProcessingResult
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 processAll
+     */
     public function processAll(?string $source = null): ProcessingResult
     {
         $processed = 0;
@@ -157,6 +198,14 @@ class ProcessingPipeline implements ProcessorInterface
 
     /**
      * Process staged customers into FA via CREATE_CUSTOMER hook event.
+     */
+    /**
+     * Process staged customers into FA via CREATE_CUSTOMER hook event.
+     *
+     * @param string|null $source
+     * @return ProcessingResult
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-002 processCustomers
      */
     private function processCustomers(?string $source): ProcessingResult
     {
@@ -205,6 +254,14 @@ class ProcessingPipeline implements ProcessorInterface
      * Process staged transaction records by first ensuring the customer exists,
      * then creating the FA transaction.
      */
+    /**
+     * Process staged transaction records via CREATE_SALES_INVOICE hook event.
+     *
+     * @param string|null $source
+     * @return ProcessingResult
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 processTransactions
+     */
     private function processTransactions(?string $source): ProcessingResult
     {
         $transactions = $this->transactionDAO->findByStatus('approved', $source);
@@ -250,6 +307,14 @@ class ProcessingPipeline implements ProcessorInterface
 
     /**
      * Process staged payments into FA via CREATE_PAYMENT hook event.
+     */
+    /**
+     * Process staged payments into FA via CREATE_PAYMENT hook event.
+     *
+     * @param string|null $source
+     * @return ProcessingResult
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-001 processPayments
      */
     private function processPayments(?string $source): ProcessingResult
     {
@@ -304,6 +369,14 @@ class ProcessingPipeline implements ProcessorInterface
      * First checks if already mapped, then tries to find by reference/email,
      * and finally creates a new customer as a fallback.
      */
+    /**
+     * Ensure a customer exists in FA for the given transaction (create if needed).
+     *
+     * @param object $txn
+     * @return int FA debtor number
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-002 resolveCustomer
+     */
     private function resolveCustomer($txn): int
     {
         $existingDebtorNo = $txn->getFaDebtorNo();
@@ -327,6 +400,14 @@ class ProcessingPipeline implements ProcessorInterface
         );
     }
 
+    /**
+     * Build FA customer data array from a staging customer record.
+     *
+     * @param object $customer
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 buildCustomerFaData
+     */
     private function buildCustomerFaData($customer): array
     {
         return [
@@ -345,6 +426,15 @@ class ProcessingPipeline implements ProcessorInterface
         ];
     }
 
+    /**
+     * Build FA transaction data array from a staging transaction record.
+     *
+     * @param object $txn
+     * @param int $debtorNo
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 buildTransactionFaData
+     */
     private function buildTransactionFaData($txn, int $debtorNo): array
     {
         $lineItems = $this->lineItemDAO->findByTransactionId($txn->getId());
@@ -377,6 +467,14 @@ class ProcessingPipeline implements ProcessorInterface
         ];
     }
 
+    /**
+     * Build FA payment data array from a staging payment record.
+     *
+     * @param object $payment
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-001 buildPaymentFaData
+     */
     private function buildPaymentFaData($payment): array
     {
         return [
@@ -406,6 +504,14 @@ class ProcessingPipeline implements ProcessorInterface
      * @param array $data
      * @return array|null
      */
+    /**
+     * Invoke customer creation via the CreationInvoker (CREATE_CUSTOMER).
+     *
+     * @param array $data
+     * @return array|null
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-002 invokeCustomerCreation
+     */
     private function invokeCustomerCreation(array $data): ?array
     {
         return $this->invokeCreation('CREATE_CUSTOMER', $data);
@@ -417,6 +523,14 @@ class ProcessingPipeline implements ProcessorInterface
      * @param array $data
      * @return array|null
      */
+    /**
+     * Invoke payment creation via the CreationInvoker (CREATE_PAYMENT).
+     *
+     * @param array $data
+     * @return array|null
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-001 invokePaymentCreation
+     */
     private function invokePaymentCreation(array $data): ?array
     {
         return $this->invokeCreation('CREATE_PAYMENT', $data);
@@ -427,6 +541,14 @@ class ProcessingPipeline implements ProcessorInterface
      *
      * @param array $data
      * @return array|null
+     */
+    /**
+     * Invoke sales invoice creation via the CreationInvoker (CREATE_SALES_INVOICE).
+     *
+     * @param array $data
+     * @return array|null
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 invokeTransactionCreation
      */
     private function invokeTransactionCreation(array $data): ?array
     {
@@ -444,6 +566,19 @@ class ProcessingPipeline implements ProcessorInterface
      * @param string $capability
      * @param array  $data
      * @return array
+     */
+    /**
+     * Ask whoever provides the capability to create the record.
+     *
+     * Uses hook_invoke_first (one provider expected). Both "no provider" and
+     * "provider reported failure" surface as success=false — never invent a
+     * debtor/payment/invoice number that was never created.
+     *
+     * @param string $capability
+     * @param array  $data
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 invokeCreation
      */
     private function invokeCreation(string $capability, array $data): array
     {
@@ -491,6 +626,13 @@ class ProcessingPipeline implements ProcessorInterface
      * reason 2 above, not the stated one.
      */
 
+    /**
+     * Get the IDs of records processed in this pipeline run.
+     *
+     * @return int[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 getProcessedIds
+     */
     public function getProcessedIds(): array
     {
         return $this->processedIds;

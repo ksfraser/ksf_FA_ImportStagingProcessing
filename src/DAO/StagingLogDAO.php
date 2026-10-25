@@ -5,12 +5,33 @@ namespace ksfraser\FrontAccounting\ImportStaging\DAO;
 
 use ksfraser\FrontAccounting\ImportStaging\Contracts\AuditLogRepositoryInterface;
 
+/**
+ * DAO for the staging_log audit trail table.
+ *
+ * Implements AuditLogRepositoryInterface. Provides write and query
+ * operations for the processing audit log.
+ *
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-007-001 staging_log table
+ * @BABOK Related: FR-ISU-007-002 status, timestamps, errors
+ * @BABOK Related: FR-ISU-016-001 log all processing steps
+ * @BABOK Related: FR-ISU-016-002 log all events
+ * @BABOK Related: FR-ISU-017-001 0_ company prefix
+ * @BABOK Related: NFR-ISU-003 TB_PREF convention
+ * @BABOK Related: NFR-ISU-009 Repository pattern
+ */
 class StagingLogDAO implements AuditLogRepositoryInterface
 {
     private string $tablePrefix;
     private string $tableName;
     private \ksf_ModulesDAO $db;
 
+    /**
+     * @param string $tablePrefix
+     * @param \ksf_ModulesDAO $db
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-007-001 table name construction
+     */
     public function __construct(string $tablePrefix, \ksf_ModulesDAO $db)
     {
         $this->tablePrefix = $tablePrefix;
@@ -18,6 +39,12 @@ class StagingLogDAO implements AuditLogRepositoryInterface
         $this->db = $db;
     }
 
+    /**
+     * Ensure the staging_log table exists (idempotent CREATE).
+     *
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-017-001 install schema
+     */
     public function ensureTableExists(): void
     {
         $sql = "CREATE TABLE IF NOT EXISTS {$this->tableName} (
@@ -37,6 +64,18 @@ class StagingLogDAO implements AuditLogRepositoryInterface
         $this->db->query($sql);
     }
 
+    /**
+     * Write an audit log entry.
+     *
+     * @param string $recordType
+     * @param int $recordId
+     * @param string $action
+     * @param string|null $source
+     * @param array $details
+     * @return int
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 log
+     */
     public function log(string $recordType, int $recordId, string $action, ?string $source = null, array $details = []): int
     {
         $this->ensureTableExists();

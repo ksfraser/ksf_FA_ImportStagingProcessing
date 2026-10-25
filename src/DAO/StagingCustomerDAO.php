@@ -6,12 +6,34 @@ namespace ksfraser\FrontAccounting\ImportStaging\DAO;
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingCustomer;
 use ksfraser\FrontAccounting\ImportStaging\Contracts\CustomerRepositoryInterface;
 
+/**
+ * DAO for the staging_customers table.
+ *
+ * Implements CustomerRepositoryInterface. Provides CRUD and query operations
+ * for unified customer staging records from all import sources.
+ *
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-001-001 staging_customers table
+ * @BABOK Related: FR-ISU-001-002 source column
+ * @BABOK Related: FR-ISU-001-003 status tracking
+ * @BABOK Related: FR-ISU-005-001 duplicate detection (findBySource)
+ * @BABOK Related: FR-ISU-005-004 idempotent update (updateBySource)
+ * @BABOK Related: FR-ISU-017-001 0_ company prefix
+ * @BABOK Related: NFR-ISU-003 TB_PREF convention
+ * @BABOK Related: NFR-ISU-009 Repository pattern
+ */
 class StagingCustomerDAO implements CustomerRepositoryInterface
 {
     private string $tablePrefix;
     private string $tableName;
     private \ksf_ModulesDAO $db;
 
+    /**
+     * @param string $tablePrefix
+     * @param \ksf_ModulesDAO $db
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-001 table name construction
+     */
     public function __construct(string $tablePrefix, \ksf_ModulesDAO $db)
     {
         $this->tablePrefix = $tablePrefix;
@@ -19,6 +41,13 @@ class StagingCustomerDAO implements CustomerRepositoryInterface
         $this->db = $db;
     }
 
+    /**
+     * Ensure the staging_customers table exists (idempotent CREATE).
+     *
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-017-001 install schema
+     * @BABOK Related: FR-ISU-017-002 ALTER TABLE only
+     */
     public function ensureTableExists(): void
     {
         $sql = "CREATE TABLE IF NOT EXISTS {$this->tableName} (
@@ -50,6 +79,14 @@ class StagingCustomerDAO implements CustomerRepositoryInterface
         $this->db->query($sql);
     }
 
+    /**
+     * Insert a new staging customer.
+     *
+     * @param StagingCustomer $customer
+     * @return int
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-001 insert
+     */
     public function insert(StagingCustomer $customer): int
     {
         $this->ensureTableExists();
@@ -77,6 +114,14 @@ class StagingCustomerDAO implements CustomerRepositoryInterface
         return $id;
     }
 
+    /**
+     * Find a staging customer by primary key.
+     *
+     * @param int $id
+     * @return StagingCustomer|null
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-001 findById
+     */
     public function findById(int $id): ?StagingCustomer
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE id = ?";
@@ -84,6 +129,15 @@ class StagingCustomerDAO implements CustomerRepositoryInterface
         return $row ? StagingCustomer::fromArray($row) : null;
     }
 
+    /**
+     * Find a staging customer by source + source_customer_id (duplicate check).
+     *
+     * @param string $source
+     * @param string $sourceCustomerId
+     * @return StagingCustomer|null
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-001 findBySource
+     */
     public function findBySource(string $source, string $sourceCustomerId): ?StagingCustomer
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE source = ? AND source_customer_id = ?";
@@ -91,6 +145,15 @@ class StagingCustomerDAO implements CustomerRepositoryInterface
         return $row ? StagingCustomer::fromArray($row) : null;
     }
 
+    /**
+     * Find staging customers filtered by status and optionally source.
+     *
+     * @param string      $status
+     * @param string|null $source
+     * @return StagingCustomer[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-001 findByStatus
+     */
     public function findByStatus(string $status, ?string $source = null): array
     {
         if ($source) {
@@ -103,6 +166,15 @@ class StagingCustomerDAO implements CustomerRepositoryInterface
         return array_map(fn($row) => StagingCustomer::fromArray($row), $rows);
     }
 
+    /**
+     * Update the status (and optional error log) of a staging customer.
+     *
+     * @param int         $id
+     * @param string      $status
+     * @param string|null $error
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 updateStatus
+     */
     public function updateStatus(int $id, string $status, ?string $error = null): void
     {
         if ($error) {
@@ -114,6 +186,14 @@ class StagingCustomerDAO implements CustomerRepositoryInterface
         }
     }
 
+    /**
+     * Update a staging customer by source + source_customer_id (idempotent upsert).
+     *
+     * @param StagingCustomer $customer
+     * @return bool
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-004 updateBySource
+     */
     public function updateBySource(StagingCustomer $customer): bool
     {
         $sql = "UPDATE {$this->tableName} SET
@@ -142,6 +222,14 @@ class StagingCustomerDAO implements CustomerRepositoryInterface
         return $this->db->affectedRows() > 0;
     }
 
+    /**
+     * Find staging customers by email address.
+     *
+     * @param string $email
+     * @return StagingCustomer[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-001 findByEmail
+     */
     public function findByEmail(string $email): array
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE email = ? ORDER BY created_at DESC";
@@ -149,6 +237,14 @@ class StagingCustomerDAO implements CustomerRepositoryInterface
         return array_map(fn($row) => StagingCustomer::fromArray($row), $rows);
     }
 
+    /**
+     * Count staging customers grouped by status.
+     *
+     * @param string|null $source
+     * @return array<string,int>
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-001 countByStatus
+     */
     public function countByStatus(?string $source = null): array
     {
         if ($source) {

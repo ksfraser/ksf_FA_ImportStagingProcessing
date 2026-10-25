@@ -9,11 +9,13 @@ use ksfraser\FrontAccounting\ImportStaging\Models\StagingCustomer;
  * Contract for customer staging data access.
  *
  * Implementations provide CRUD operations for StagingCustomer records.
- * Allows different data sources (ISU tables, Square, WooCommerce) to
- * supply their own persistence layer behind a unified interface.
+ * Allows different data sources to supply their own persistence layer
+ * behind a unified interface.
  *
- * @requirement FR-01 Customer Staging
- * @UML Note: Class diagram in ProjectDocs/UML.md
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-001-001 customer staging
+ * @BABOK Related: FR-ISU-005-001 duplicate detection (findBySource)
+ * @BABOK Related: NFR-ISU-009 Repository pattern
  */
 interface CustomerRepositoryInterface
 {
@@ -22,6 +24,8 @@ interface CustomerRepositoryInterface
      *
      * @param StagingCustomer $customer The customer to insert
      * @return int The auto-generated ID
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-001 insert
      */
     public function insert(StagingCustomer $customer): int;
 
@@ -30,6 +34,8 @@ interface CustomerRepositoryInterface
      *
      * @param int $id The row ID
      * @return StagingCustomer|null null when not found
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-001 findById
      */
     public function findById(int $id): ?StagingCustomer;
 
@@ -39,6 +45,8 @@ interface CustomerRepositoryInterface
      * @param string $source             The source system (e.g. 'square_api')
      * @param string $sourceCustomerId   The source-side identifier
      * @return StagingCustomer|null null when not found
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-001 findBySource
      */
     public function findBySource(string $source, string $sourceCustomerId): ?StagingCustomer;
 
@@ -48,6 +56,8 @@ interface CustomerRepositoryInterface
      * @param string      $status The status to filter on
      * @param string|null $source Optional source filter
      * @return StagingCustomer[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-001 findByStatus
      */
     public function findByStatus(string $status, ?string $source = null): array;
 
@@ -56,6 +66,8 @@ interface CustomerRepositoryInterface
      *
      * @param string $email The email to search for
      * @return StagingCustomer[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-001 findByEmail
      */
     public function findByEmail(string $email): array;
 
@@ -65,6 +77,8 @@ interface CustomerRepositoryInterface
      * @param int         $id     The row ID
      * @param string      $status New status value
      * @param string|null $error  Optional error message
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 updateStatus
      */
     public function updateStatus(int $id, string $status, ?string $error = null): void;
 
@@ -73,6 +87,8 @@ interface CustomerRepositoryInterface
      *
      * @param StagingCustomer $customer The customer with updated fields
      * @return bool True if a row was affected
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-004 updateBySource
      */
     public function updateBySource(StagingCustomer $customer): bool;
 
@@ -81,6 +97,8 @@ interface CustomerRepositoryInterface
      *
      * @param string|null $source Optional source filter
      * @return array<string,int> Map of status => count
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-001 countByStatus
      */
     public function countByStatus(?string $source = null): array;
 }

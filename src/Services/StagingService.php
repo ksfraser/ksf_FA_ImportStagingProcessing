@@ -26,6 +26,35 @@ use ksfraser\FrontAccounting\ImportStaging\Validators\TransactionValidator;
 use ksfraser\FrontAccounting\ImportStaging\Validators\CustomerValidator;
 use ksfraser\FrontAccounting\ImportStaging\Validators\PaymentValidator;
 
+/**
+ * Core staging service for the unified import staging pipeline.
+ *
+ * Implements StagingManagerInterface. Provides stage/validate/match/process
+ * operations for customers, transactions, payments, and line items from all
+ * import sources (woocommerce, square_api, square_csv, paypal, bank).
+ *
+ * Delegates FA entity creation (debtors, invoices, payments) to capability
+ * providers via CreationInvoker — ISU names the capability, not the module.
+ *
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-001 staging_customers (stageCustomer, stageOrUpdateCustomer)
+ * @BABOK Related: FR-ISU-002 staging_transactions (stageTransaction, stageOrUpdateTransaction)
+ * @BABOK Related: FR-ISU-003 staging_payments (stagePayment, stageOrUpdatePayment)
+ * @BABOK Related: FR-ISU-004 staging_line_items (stageLineItem, stageOrUpdateLineItem)
+ * @BABOK Related: FR-ISU-005 duplicate detection (source + source_id checks)
+ * @BABOK Related: FR-ISU-006 field mapping (via DtoAdapter)
+ * @BABOK Related: FR-ISU-007 audit logging (logDAO writes)
+ * @BABOK Related: FR-ISU-008 validation (Validators gate all stage* calls)
+ * @BABOK Related: FR-ISU-009 matching (MatchingService integration)
+ * @BABOK Related: FR-ISU-010 auto-approve threshold (via MatchingService)
+ * @BABOK Related: FR-ISU-011 review threshold (via MatchingService)
+ * @BABOK Related: FR-ISU-012 processing (createDebtorFromStaged, ProcessingPipeline)
+ * @BABOK Related: FR-ISU-013 reconcile payments (reconcilePayment, reconcilePaymentQueue)
+ * @BABOK Related: FR-ISU-014 auto-reconcile threshold
+ * @BABOK Related: FR-ISU-016 audit logging (all operations logged)
+ * @BABOK Related: NFR-ISU-006 exception hierarchy
+ * @BABOK Related: NFR-ISU-009 DI / Repository pattern
+ */
 class StagingService implements StagingManagerInterface
 {
     private CustomerRepositoryInterface $customerDAO;
@@ -66,6 +95,20 @@ class StagingService implements StagingManagerInterface
         $this->validSources = $validSources;
     }
 
+    /**
+     * Stage a new customer record (with validation and duplicate check).
+     *
+     * @param array  $data   Customer data
+     * @param string $source Source system identifier
+     * @return StagingCustomer
+     * @throws StagingException On validation failure
+     * @throws InvalidSourceException On unknown source
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-001 stageCustomer
+     * @BABOK Related: FR-ISU-005-001 duplicate detection
+     * @BABOK Related: FR-ISU-008-001 validation
+     * @BABOK Related: FR-ISU-016-001 audit logging
+     */
     public function stageCustomer(array $data, string $source): StagingCustomer
     {
         $this->validateSource($source);
@@ -79,6 +122,19 @@ class StagingService implements StagingManagerInterface
         return $customer;
     }
 
+    /**
+     * Upsert a customer by source + source_customer_id (idempotent).
+     *
+     * @param array  $data   Customer data
+     * @param string $source Source system identifier
+     * @return StagingCustomer
+     * @throws StagingException On validation failure
+     * @throws InvalidSourceException On unknown source
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-004 stageOrUpdateCustomer
+     * @BABOK Related: FR-ISU-008-001 validation
+     * @BABOK Related: FR-ISU-016-001 audit logging
+     */
     public function stageOrUpdateCustomer(array $data, string $source): StagingCustomer
     {
         $this->validateSource($source);
@@ -101,6 +157,20 @@ class StagingService implements StagingManagerInterface
         return $customer;
     }
 
+    /**
+     * Stage a new transaction record (with validation and duplicate check).
+     *
+     * @param array  $data   Transaction data
+     * @param string $source Source system identifier
+     * @return StagingTransaction
+     * @throws StagingException On validation failure or duplicate
+     * @throws InvalidSourceException On unknown source
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-001 stageTransaction
+     * @BABOK Related: FR-ISU-005-001 duplicate detection
+     * @BABOK Related: FR-ISU-008-001 validation
+     * @BABOK Related: FR-ISU-016-001 audit logging
+     */
     public function stageTransaction(array $data, string $source): StagingTransaction
     {
         $this->validateSource($source);
@@ -120,6 +190,19 @@ class StagingService implements StagingManagerInterface
         return $transaction;
     }
 
+    /**
+     * Upsert a transaction by source + source_transaction_id (idempotent).
+     *
+     * @param array  $data   Transaction data
+     * @param string $source Source system identifier
+     * @return StagingTransaction
+     * @throws StagingException On validation failure
+     * @throws InvalidSourceException On unknown source
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-004 stageOrUpdateTransaction
+     * @BABOK Related: FR-ISU-008-001 validation
+     * @BABOK Related: FR-ISU-016-001 audit logging
+     */
     public function stageOrUpdateTransaction(array $data, string $source): StagingTransaction
     {
         $this->validateSource($source);
@@ -142,6 +225,14 @@ class StagingService implements StagingManagerInterface
         return $transaction;
     }
 
+    /**
+     * Get staged customers filtered by status and source.
+     *
+     * @param array $filters Filter criteria (status, source)
+     * @return StagingCustomer[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-001 getStagedCustomers
+     */
     public function getStagedCustomers(array $filters = []): array
     {
         $status = $filters['status'] ?? 'staged';
@@ -149,6 +240,14 @@ class StagingService implements StagingManagerInterface
         return $this->customerDAO->findByStatus($status, $source);
     }
 
+    /**
+     * Get staged transactions filtered by status and source.
+     *
+     * @param array $filters Filter criteria (status, source)
+     * @return StagingTransaction[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-001 getStagedTransactions
+     */
     public function getStagedTransactions(array $filters = []): array
     {
         $status = $filters['status'] ?? 'staged';
@@ -156,12 +255,34 @@ class StagingService implements StagingManagerInterface
         return $this->transactionDAO->findByStatus($status, $source);
     }
 
+    /**
+     * Update the status (and optional error log) of a staged transaction.
+     *
+     * @param int         $id     Transaction row ID
+     * @param string      $status New status value
+     * @param string|null $error  Optional error message
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 updateStatus
+     * @BABOK Related: FR-ISU-007-002 error logging
+     */
     public function updateStatus(int $id, string $status, ?string $error = null): void
     {
         $this->transactionDAO->updateStatus($id, $status, null, $error);
         $this->logDAO->log('transaction', $id, $status, null, $error ? ['error' => $error] : []);
     }
 
+    /**
+     * Process the staging queue for a source (match, auto-approve, or flag).
+     *
+     * @param string|null $source Optional source filter
+     * @return ProcessingResult
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 processQueue
+     * @BABOK Related: FR-ISU-009-001 matching
+     * @BABOK Related: FR-ISU-010-001 auto-approve
+     * @BABOK Related: FR-ISU-011-001 review
+     * @BABOK Related: FR-ISU-016-001 audit logging
+     */
     public function processQueue(?string $source = null): ProcessingResult
     {
         $records = $this->transactionDAO->getQueueForProcessing($source);
@@ -211,6 +332,22 @@ class StagingService implements StagingManagerInterface
         return ProcessingResult::success($processed, 'queue_processed');
     }
 
+    /**
+     * Stage a new payment record (with validation, net_amount calc, duplicate check).
+     *
+     * @param array  $data                   Payment data
+     * @param string $source                 Source system identifier
+     * @param int|null $stagingTransactionId Optional parent transaction ID
+     * @return StagingPayment
+     * @throws StagingException On validation failure or duplicate
+     * @throws InvalidSourceException On unknown source
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-003-001 stagePayment
+     * @BABOK Related: FR-ISU-003-003 net_amount auto-calculation
+     * @BABOK Related: FR-ISU-005-002 duplicate detection
+     * @BABOK Related: FR-ISU-008-001 validation
+     * @BABOK Related: FR-ISU-016-001 audit logging
+     */
     public function stagePayment(array $data, string $source, ?int $stagingTransactionId = null): StagingPayment
     {
         $this->validateSource($source);
@@ -236,6 +373,21 @@ class StagingService implements StagingManagerInterface
         return $payment;
     }
 
+    /**
+     * Upsert a payment by source + source_payment_id (idempotent).
+     *
+     * @param array  $data                   Payment data
+     * @param string $source                 Source system identifier
+     * @param int|null $stagingTransactionId Optional parent transaction ID
+     * @return StagingPayment
+     * @throws StagingException On validation failure
+     * @throws InvalidSourceException On unknown source
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-004 stageOrUpdatePayment
+     * @BABOK Related: FR-ISU-003-003 net_amount auto-calculation
+     * @BABOK Related: FR-ISU-008-001 validation
+     * @BABOK Related: FR-ISU-016-001 audit logging
+     */
     public function stageOrUpdatePayment(array $data, string $source, ?int $stagingTransactionId = null): StagingPayment
     {
         $this->validateSource($source);
@@ -264,6 +416,14 @@ class StagingService implements StagingManagerInterface
         return $payment;
     }
 
+    /**
+     * Get staged payments filtered by status and source.
+     *
+     * @param array $filters Filter criteria (status, source)
+     * @return StagingPayment[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-003-001 getStagedPayments
+     */
     public function getStagedPayments(array $filters = []): array
     {
         $status = $filters['status'] ?? 'staged';
@@ -271,11 +431,35 @@ class StagingService implements StagingManagerInterface
         return $this->paymentDAO->findByStatus($status, $source);
     }
 
+    /**
+     * Get payments linked to a staging transaction.
+     *
+     * @param int $stagingTransactionId
+     * @return StagingPayment[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-003-001 getPaymentsByTransaction
+     */
     public function getPaymentsByTransaction(int $stagingTransactionId): array
     {
         return $this->paymentDAO->findByTransaction($stagingTransactionId);
     }
 
+    /**
+     * Reconcile a staged payment against an FA bank/debtor record.
+     *
+     * Scores the match, auto-approves (>=95%), flags for review (80-95%),
+     * or rejects. Records the match in staging_payment_matches.
+     *
+     * @param int    $paymentId Staged payment row ID
+     * @param array  $faRecord  FA bank/debtor transaction record
+     * @return ProcessingResult
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-001 reconcilePayment
+     * @BABOK Related: FR-ISU-013-002 scoring-based payment match
+     * @BABOK Related: FR-ISU-014-001 auto-reconcile
+     * @BABOK Related: FR-ISU-014-002 review threshold
+     * @BABOK Related: FR-ISU-016-001 audit logging
+     */
     public function reconcilePayment(int $paymentId, array $faRecord): ProcessingResult
     {
         $payment = $this->paymentDAO->findById($paymentId);
@@ -336,6 +520,15 @@ class StagingService implements StagingManagerInterface
         return ProcessingResult::success($paymentId, 'payment_unmatched');
     }
 
+    /**
+     * Reconcile the payment queue for a source (batch reconciliation).
+     *
+     * @param string|null $source Optional source filter
+     * @return ProcessingResult
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-001 reconcilePaymentQueue
+     * @BABOK Related: FR-ISU-016-001 audit logging
+     */
     public function reconcilePaymentQueue(?string $source = null): ProcessingResult
     {
         $payments = $this->paymentDAO->getQueueForReconciliation($source);
@@ -374,11 +567,27 @@ class StagingService implements StagingManagerInterface
         return ProcessingResult::success($processed, 'reconciliation_completed');
     }
 
+    /**
+     * Get the payment match history for a staged payment.
+     *
+     * @param int $paymentId
+     * @return StagingPaymentMatch[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-001 getPaymentMatchHistory
+     */
     public function getPaymentMatchHistory(int $paymentId): array
     {
         return $this->paymentMatchDAO->findByPaymentId($paymentId);
     }
 
+    /**
+     * Get payment status counts grouped by status (optionally by source).
+     *
+     * @param string|null $source
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-003-001 getPaymentStatusCounts
+     */
     public function getPaymentStatusCounts(?string $source = null): array
     {
         return $this->paymentDAO->countByStatus($source);
@@ -388,6 +597,18 @@ class StagingService implements StagingManagerInterface
     // Line item staging
     // ========================================================================
 
+    /**
+     * Stage a line item belonging to a staging transaction.
+     *
+     * @param array  $data   Line item data
+     * @param string $source Source system identifier
+     * @return StagingLineItem
+     * @throws StagingException On validation failure
+     * @throws InvalidSourceException On unknown source
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 stageLineItem
+     * @BABOK Related: FR-ISU-016-001 audit logging
+     */
     public function stageLineItem(array $data, string $source): StagingLineItem
     {
         $this->validateSource($source);
@@ -402,6 +623,18 @@ class StagingService implements StagingManagerInterface
         return $item;
     }
 
+    /**
+     * Upsert a line item by source + source_id (idempotent).
+     *
+     * @param array  $data   Line item data
+     * @param string $source Source system identifier
+     * @return StagingLineItem
+     * @throws StagingException On validation failure
+     * @throws InvalidSourceException On unknown source
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-004 stageOrUpdateLineItem
+     * @BABOK Related: FR-ISU-016-001 audit logging
+     */
     public function stageOrUpdateLineItem(array $data, string $source): StagingLineItem
     {
         $this->validateSource($source);
@@ -419,16 +652,41 @@ class StagingService implements StagingManagerInterface
         return $item;
     }
 
+    /**
+     * Get all line items for a staging transaction.
+     *
+     * @param int $stagingTransactionId
+     * @return StagingLineItem[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-002 getLineItemsByTransaction
+     */
     public function getLineItemsByTransaction(int $stagingTransactionId): array
     {
         return $this->lineItemDAO->findByTransactionId($stagingTransactionId);
     }
 
+    /**
+     * Get line items by source (and optional source_id).
+     *
+     * @param string $source
+     * @param string|null $sourceId
+     * @return StagingLineItem[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 getLineItemsBySource
+     */
     public function getLineItemsBySource(string $source, ?string $sourceId = null): array
     {
         return $this->lineItemDAO->findBySource($source, $sourceId);
     }
 
+    /**
+     * Delete all line items for a staging transaction.
+     *
+     * @param int $stagingTransactionId
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 deleteLineItemsByTransaction
+     * @BABOK Related: FR-ISU-016-001 audit logging
+     */
     public function deleteLineItemsByTransaction(int $stagingTransactionId): void
     {
         $this->lineItemDAO->deleteByTransactionId($stagingTransactionId);
@@ -446,6 +704,17 @@ class StagingService implements StagingManagerInterface
      * @param  string $source
      * @return void
      * @throws InvalidSourceException
+     */
+    /**
+     * Reject a source name that is empty or not one of the configured providers.
+     *
+     * Guard for every public stage* entry point so an unknown source can never
+     * reach a DAO and write a row the processing pipeline has no handler for.
+     *
+     * @param string $source
+     * @throws InvalidSourceException
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-001 validateSource
      */
     private function validateSource(string $source): void
     {
@@ -665,6 +934,19 @@ class StagingService implements StagingManagerInterface
      * ksf_FA_Customer; a future SuiteCRM migration module should be able to
      * answer instead without this method being edited.
      */
+    /**
+     * Create a new FA debtor/branch/contact from a staged customer.
+     *
+     * Dispatched by CAPABILITY (CREATE_CUSTOMER) via CreationInvoker — not by
+     * module name. Throws if no provider handles the capability or the provider
+     * reports failure.
+     *
+     * @param StagingCustomer $stagedCustomer
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-002 createDebtorFromStaged
+     * @BABOK Related: FR-ISU-012-001 CREATE_CUSTOMER delegation
+     */
     public function createDebtorFromStaged(StagingCustomer $stagedCustomer): array
     {
         $fullName = $stagedCustomer->getName() ?? '';
@@ -719,6 +1001,17 @@ class StagingService implements StagingManagerInterface
 
     /**
      * Map staged customer to existing FA debtor/branch/contact.
+     */
+    /**
+     * Map a staged customer to an existing FA debtor/branch/contact.
+     *
+     * @param StagingCustomer $stagedCustomer
+     * @param array           $existingDebtor
+     * @param int|null        $branchCode
+     * @param string|null     $contactRef
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 mapStagedCustomerToExisting
      */
     public function mapStagedCustomerToExisting(StagingCustomer $stagedCustomer, array $existingDebtor, ?int $branchCode = null, ?string $contactRef = null): array
     {

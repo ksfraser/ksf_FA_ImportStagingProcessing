@@ -7,13 +7,18 @@ use ksfraser\FrontAccounting\ImportStaging\Models\StagingLineItem;
 use ksfraser\FrontAccounting\ImportStaging\Contracts\LineItemRepositoryInterface;
 
 /**
- * DAO for staging_line_items table.
+ * DAO for the staging_line_items table (and staging_line_item_attributes).
  *
- * Core columns are stored in staging_line_items; source-specific extra fields
- * go into staging_line_item_attributes as name-value pairs.
+ * Implements LineItemRepositoryInterface. Core columns are stored in
+ * staging_line_items; source-specific extra fields go into
+ * staging_line_item_attributes as name-value pairs.
  *
- * @requirement FR-06 Line Item Staging
- * @UML Note: Class diagram in ProjectDocs/UML.md
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-004-001 line items linked to parent transaction
+ * @BABOK Related: FR-ISU-004-002 staging_transaction_id foreign key
+ * @BABOK Related: FR-ISU-017-001 0_ company prefix
+ * @BABOK Related: NFR-ISU-003 TB_PREF convention
+ * @BABOK Related: NFR-ISU-009 Repository pattern
  */
 class StagingLineItemDAO implements LineItemRepositoryInterface
 {
@@ -21,6 +26,12 @@ class StagingLineItemDAO implements LineItemRepositoryInterface
     private string $attrTableName;
     private \ksf_ModulesDAO $db;
 
+    /**
+     * @param string $tablePrefix
+     * @param \ksf_ModulesDAO $db
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 table name construction
+     */
     public function __construct(string $tablePrefix, \ksf_ModulesDAO $db)
     {
         $this->tableName = $tablePrefix . 'staging_line_items';
@@ -28,6 +39,12 @@ class StagingLineItemDAO implements LineItemRepositoryInterface
         $this->db = $db;
     }
 
+    /**
+     * Ensure the staging_line_items and attributes tables exist (idempotent).
+     *
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-017-001 install schema
+     */
     public function ensureTableExists(): void
     {
         $sql = "CREATE TABLE IF NOT EXISTS {$this->tableName} (
@@ -72,6 +89,14 @@ class StagingLineItemDAO implements LineItemRepositoryInterface
         $this->db->query($attrSql);
     }
 
+    /**
+     * Insert a new staging line item.
+     *
+     * @param StagingLineItem $item
+     * @return int
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 insert
+     */
     public function insert(StagingLineItem $item): int
     {
         $this->ensureTableExists();
@@ -108,6 +133,14 @@ class StagingLineItemDAO implements LineItemRepositoryInterface
         return $id;
     }
 
+    /**
+     * Find all line items belonging to a staging transaction.
+     *
+     * @param int $transactionId
+     * @return StagingLineItem[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-002 findByTransactionId
+     */
     public function findByTransactionId(int $transactionId): array
     {
         $sql = "SELECT * FROM {$this->tableName}
@@ -127,6 +160,15 @@ class StagingLineItemDAO implements LineItemRepositoryInterface
         return $items;
     }
 
+    /**
+     * Find line items by source and optional source_id.
+     *
+     * @param string $source
+     * @param string|null $sourceId
+     * @return StagingLineItem[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 findBySource
+     */
     public function findBySource(string $source, ?string $sourceId = null): array
     {
         $conditions = ["source = ?"];
@@ -221,6 +263,13 @@ class StagingLineItemDAO implements LineItemRepositoryInterface
         ]);
     }
 
+    /**
+     * Delete all line items (and attributes) for a staging transaction.
+     *
+     * @param int $transactionId
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 deleteByTransactionId
+     */
     public function deleteByTransactionId(int $transactionId): void
     {
         $subSql = "SELECT id FROM {$this->tableName} WHERE staging_transaction_id = ?";

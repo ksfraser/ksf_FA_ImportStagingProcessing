@@ -6,34 +6,16 @@ namespace ksfraser\FrontAccounting\ImportStaging\Services\Dispatch;
 /**
  * CreationInvoker — asks "whoever can create this?" without naming a module.
  *
- * WHY hook_invoke_first AND NOT hook_invoke. FA offers three dispatchers:
+ * Dispatches creation capabilities (CREATE_CUSTOMER, CREATE_PAYMENT,
+ * CREATE_SALES_INVOICE) via hook_invoke_first so exactly one provider answers.
+ * ISU names the capability, not the module — a future data-migration module
+ * can answer CREATE_CUSTOMER without ISU being edited.
  *
- *   hook_invoke($ext, $method, ...)     one NAMED module; null if inactive
- *   hook_invoke_first($method, ...)     first active module to answer
- *   hook_invoke_all($method, ...)       every module, results merged
- *
- * `hook_invoke` hardcodes the owner, which would couple ISU to whichever module
- * happens to provide the capability today. That is wrong here: a future
- * `ksf_suitecrm` data-migration module is expected to be able to answer
- * CREATE_CUSTOMER instead, and ISU should not need editing when it does.
- *
- * `hook_invoke_first` is exactly the capability dispatch FA provides for this --
- * it walks the active modules and stops at the first non-null answer.
- *
- * DEPLOYMENT RULE. `hook_invoke_first` stops at the first responder in
- * `$installed_extensions` registry order, so two modules implementing the same
- * CREATE_* would make the winner dependent on registry ordering. Exactly one
- * module must provide each creation capability. That is a deployment
- * invariant, not something the call site can enforce, so
- * `providersOf()` below exists to audit it.
- *
- * DECLINE PROTOCOL. A responder that cannot handle the request must return
- * `null` so the walk continues. Returning `false` STOPS the walk, because
- * `isset(false)` is true -- see includes/hooks.inc:324.
- *
- * PHP 7.3 compatible.
- *
- * @package ksf_FA_ImportStagingProcessing
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-012-002 CREATE_CUSTOMER delegation
+ * @BABOK Related: FR-ISU-013-001 CREATE_PAYMENT delegation
+ * @BABOK Related: NFR-ISU-009 Factory pattern
+ * @BABOK Related: NFR-ISU-007 traceability (capability, not module, named)
  */
 class CreationInvoker
 {
@@ -45,6 +27,8 @@ class CreationInvoker
     /**
      * @param callable|null $invokeFirst Defaults to FA's hook_invoke_first
      * @param callable|null $invokeAll   Defaults to FA's hook_invoke_all (discovery only)
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-002 constructor
      */
     public function __construct($invokeFirst = null, $invokeAll = null)
     {
@@ -58,6 +42,15 @@ class CreationInvoker
      * @param string $capability e.g. 'CREATE_CUSTOMER'
      * @param array  $payload
      * @return array ['handled'=>bool, 'response'=>array|null, 'module'=>string|null]
+     */
+    /**
+     * Invoke a creation capability and return the responder's reply.
+     *
+     * @param string $capability e.g. 'CREATE_CUSTOMER'
+     * @param array  $payload
+     * @return array ['handled'=>bool, 'response'=>array|null, 'module'=>string|null]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-002 create
      */
     public function create($capability, array $payload)
     {
@@ -121,6 +114,14 @@ class CreationInvoker
      * @param string $capability
      * @return array List of ['module'=>string, 'methods'=>array]
      */
+    /**
+     * Which active modules advertise a capability (discovery via hook_invoke_all).
+     *
+     * @param string $capability
+     * @return array List of ['module'=>string, 'methods'=>array]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-018-001 providersOf
+     */
     public function providersOf($capability)
     {
         $invoke = $this->invokeAll;
@@ -181,6 +182,14 @@ class CreationInvoker
      *
      * @param string $capability
      * @return bool
+     */
+    /**
+     * Whether more than one active module claims the capability.
+     *
+     * @param string $capability
+     * @return bool
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-018-001 hasAmbiguousProvider
      */
     public function hasAmbiguousProvider($capability)
     {

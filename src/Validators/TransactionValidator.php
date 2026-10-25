@@ -6,10 +6,25 @@ namespace ksfraser\FrontAccounting\ImportStaging\Validators;
 use ksfraser\FrontAccounting\ImportStaging\Contracts\ValidationServiceInterface;
 use ksfraser\FrontAccounting\ImportStaging\Contracts\ValidationResult;
 
+/**
+ * Validates staged transaction records against schema rules.
+ *
+ * Implements ValidationServiceInterface. Requires source and total_amount;
+ * optionally validates transaction_date format.
+ *
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-008-001 validate staged records
+ * @BABOK Related: NFR-ISU-006 validation errors
+ * @BABOK Related: NFR-ISU-009 Strategy pattern
+ */
 class TransactionValidator implements ValidationServiceInterface
 {
     private array $rules;
 
+    /**
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-008-001 constructor
+     */
     public function __construct()
     {
         $this->rules = [
@@ -19,6 +34,14 @@ class TransactionValidator implements ValidationServiceInterface
         ];
     }
 
+    /**
+     * Validate a staged transaction record against schema rules.
+     *
+     * @param array $record
+     * @return ValidationResult
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-008-001 validate
+     */
     public function validate(array $record): ValidationResult
     {
         $errors = [];
@@ -55,6 +78,11 @@ class TransactionValidator implements ValidationServiceInterface
         return ValidationResult::invalid($errors, $warnings);
     }
 
+    /**
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-008-001 getRules
+     */
     public function getRules(): array
     {
         return $this->rules;

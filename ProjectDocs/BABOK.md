@@ -1,223 +1,530 @@
-# BABOK Alignment — ksf_FA_ImportStagingProcessing
+# BABOK Business Analysis — ksf_FA_ImportStagingProcessing
 
-## Overview
-
-This document maps the ksf_FA_ImportStagingProcessing project to the **Business Analysis Body of Knowledge (BABOK 3.0)** knowledge areas, tasks, and techniques. Each requirement and design decision is traced to BABOK tasks.
-
----
-
-## Knowledge Area 1: Business Analysis Planning and Monitoring
-
-### Task: Plan Business Analysis Approach
-| Element | Application |
-|---------|-------------|
-| Approach | Agile BA — iterative discovery with working software as primary deliverable |
-| Techniques | Stakeholder List, Business Process Modeling, Scope Modeling |
-| Outputs | This BABOK document, Requirements.md, RTM.md, UML.md, UseCases.md |
-
-### Task: Plan Stakeholder Engagement
-| Stakeholder | BABOK Role | Engagement Strategy |
-|-------------|------------|---------------------|
-| FA Administrator | Domain SME | UI reviews, processing workflow testing |
-| Source Module Devs | Implementation | Interface design reviews, hook API validation |
-| Finance/Accounting | Business Sponsor | Requirements sign-off, reconciliation reports |
-| Developer (ksf) | Implementation | AGENTS.md conventions, peer reviews |
-
-### Task: Plan BA Information Management
-| Artifact | Repository | Access |
-|----------|------------|--------|
-| Requirements | ProjectDocs/Requirements.md | All team members |
-| RTM | ProjectDocs/RTM.md | All team members |
-| UML | ProjectDocs/UML.md | All team members |
-| Code | GitHub | Developers |
-| Test cases | tests/ directory | QA team |
+> **Module Code**: ISU (Import Staging Processing)
+> **Version**: 2.4.4
+> **Status**: Active
+> **Numbering Scheme**: BR-* (Business Requirement), FR-* (Functional Requirement),
+> UC-* (Use Case), UT-* (Unit Test), UAT-* (User Acceptance Test).
+> All IDs are module-prefixed with `ISU-` to avoid cross-module collisions.
 
 ---
 
-## Knowledge Area 2: Elicitation and Collaboration
+## 1. Business Analysis Overview
 
-### Task: Prepare for Elicitation
-| Source | Technique | Outcome |
-|--------|-----------|---------|
-| ksf_FA_Square src/ | Interface Analysis | Current staging interfaces and patterns |
-| FA_ImportSquareUp (legacy) | Interface Analysis | Existing prod staging tables and matching logic |
-| ksf_generate (WooCommerce) | Interface Analysis | WooCommerce staging approach |
-| ksf_bank_import | Interface Analysis | Bank import staging approach |
-| ksf_FA_Common | Interface Analysis | Base hooks class patterns |
+### 1.1 Purpose
 
-### Task: Conduct Elicitation
-| Session | Technique | Result |
-|---------|-----------|--------|
-| Repository Analysis | Document Analysis | Mapped all 3 source module staging approaches |
-| Inter-Module Comm Review | Interface Analysis | Standardized 4-method hook_invoke pattern |
-| Staging Design Review | Stakeholder Interview | Unified staging table design with backward compat |
+This document captures the business analysis for the ksf_FA_ImportStagingProcessing
+module, aligned with BABOK (Business Analysis Body of Knowledge) practices. It
+maps business needs to requirements and solution design, and provides the
+numbering scheme used across Requirements.md, RTM.md, source code `@BABOK`
+tags, and test cases.
 
----
+### 1.2 Scope
 
-## Knowledge Area 3: Requirements Life Cycle Management
+The module provides a unified staging layer and processing pipeline for
+post-import operations from third-party sources (WooCommerce, Square API,
+Square CSV, PayPal, Bank Import) into FrontAccounting. It owns the shared
+staging tables (`staging_customers`, `staging_transactions`,
+`staging_payments`, `staging_mapping`, `staging_log`) and the consistent
+Stage → Validate → Match → Process → Audit pipeline.
 
-### Task: Trace Requirements
-See **RTM.md** for the full Requirements Traceability Matrix. Every functional requirement maps to a code file and test case.
-
-### Task: Maintain Requirements
-| Change Driver | Impact | Process |
-|---------------|--------|---------|
-| New source type added | New source constant + mapping | FR -> RTM -> Code -> Test |
-| FA version upgrade | Table/API changes | Update mapping layer |
-| New field requirements | Schema migration via ALTER TABLE | Extend DAO ensureTableExists() |
-
-### Task: Prioritize Requirements
-Using MoSCoW:
-
-**Must Have**
-- FR-01.01 through FR-01.07: Unified staging tables with backward compat
-- FR-02.01 through FR-02.06: Processing pipeline with scoring matching
-- FR-03.01 through FR-03.02: Standard hooks API
-- FR-07.01 through FR-07.07: Source-agnostic date handling via DI
-- FR-08.01 through FR-08.03: Shared platform dependencies
-- NFR-01 through NFR-08: Quality attributes
-
-**Should Have**
-- FR-03.03 through FR-03.04: Composer package for DAO access
-- FR-04.01 through FR-04.03: Event-driven architecture
-- FR-05.01 through FR-05.04: Configuration UI
-
-**Could Have**
-- Advanced reconciliation dashboards
-- Batch processing with progress tracking
-
-**Won't Have (v1.0)**
-- Real-time sync triggers
-- Machine learning match enhancement
+Source modules own their import mechanics; this module owns staging and
+processing only. FA entity creation (debtors, invoices, payments) is
+delegated to ksf_FA_Customer and ksf_FA_Payment via capability-based hooks
+(`CREATE_CUSTOMER`, `CREATE_PAYMENT`) — ISU never writes FA core tables
+directly.
 
 ---
 
-## Knowledge Area 4: Strategy Analysis
+## 2. Stakeholders
 
-### Task: Analyze Current State
-| Element | Current State |
-|---------|---------------|
-| Business Process | Each import module has own staging logic, tables, and processing |
-| Technology | 3+ separate staging implementations, no shared layer |
-| Pain Points | Duplicate code, inconsistent field handling, no unified matching |
-| Production Data | Existing `0_ksf_import_square_*` tables with matched data must be preserved |
-
-### Task: Define Future State
-| Element | Future State |
-|---------|--------------|
-| Staging | Single unified schema shared across all import modules |
-| Processing | Consistent pipeline: Stage → Validate → Match → Process → Audit |
-| Integration | Standard API via hooks for staging access |
-| Data Safety | Zero-loss migration with ALTER TABLE strategy |
-
-### Task: Assess Risks
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Data loss during schema migration | Low | Critical | ALTER TABLE only, never DROP/recreate |
-| Breaking existing import flows | Medium | High | Full backward-compat testing |
-| PHP version constraints | Low | Medium | Target PHP 7.3+, avoid 8+ features |
-| Date format mismatch across sources | High | High | DateConverterInterface with DI — all sources use same conversion service |
-
-### Task: Define Change Strategy
-| Phase | Scope | Timeline |
-|-------|-------|----------|
-| Phase 1: Foundation | ProjectDocs, schema, Contracts, Models | Current |
-| Phase 2: Core Services | DAO, Services, Validators, ProcessingPipeline | Next |
-| Phase 3: Integration | hooks.php, composer.json, tests | Next |
-| Phase 4: Adoption | Migrate source modules to use unified staging | After v1.0 |
-| Phase 5: Hooks+DTO Architecture | External modules call ISU hooks with DTOs | v2.5+ |
-
-### Task: Hooks+DTO Architecture
-
-ISU defines hooks and DTOs (in `ksfraser/staging-dto` package) for external
-modules to stage data. External modules create DTOs and call ISU hooks.
-ISU handles all DB operations and FA entity creation.
-
-| Hook | DTO Type | Purpose |
-|------|----------|---------|
-| `stageEntity` | Any `StagingEntity` subclass | Insert entity into staging |
-| `stagingExists` | `StagingExistsQuery` | Check if entity exists in staging |
-| `processQueue` | `string` (source) | Trigger processing for a source |
-
-**Key Principles:**
-- ISU owns all DB operations (insert, update, match, process)
-- External modules only create DTOs and call hooks
-- ISU responds about staging data ONLY — never about FA entities
-- `ksfraser/staging-dto` package shared across all modules (ISU, Square, Woo, etc.)
-
-**Benefits:**
-- ISU never imports source-specific code (Dependency Inversion)
-- External modules just create DTOs — no DB knowledge needed
-- New sources just depend on `ksfraser/staging-dto` and call hooks
-- All modules (Square, Woo, PayPal, Stripe) use same pattern
-
-**Legacy Note:** The repository adapter pattern (FR-09) was an earlier approach.
-It is now deprecated in favor of hooks+DTO. Adapter classes are marked
-`@deprecated` and will be removed in v3.0.0.
+| Stakeholder | BABOK Role | Interest |
+|-------------|------------|----------|
+| FA Administrator | Domain SME | UI reviews, processing workflow testing, activation |
+| Finance / Accounting | Business Sponsor | Accurate transaction records, reconciliation reports |
+| Source Module Devs (Square/Woo/PayPal/Bank) | Implementation | Interface design reviews, hook API validation |
+| Developer (ksf) | Implementation | AGENTS.md conventions, peer reviews, @BABOK traceability |
+| QA / Tester | Validation | Test coverage, use case execution, UAT sign-off |
 
 ---
 
-## Knowledge Area 5: Requirements Analysis and Design Definition
+## 3. Business Needs
 
-### Task: Specify and Model Requirements
-| Artifact | Technique | Content |
-|----------|-----------|---------|
-| Requirements.md | FR Specification | Functional + non-functional requirements |
-| RTM.md | Traceability Matrix | FR -> UC -> Code -> Test |
-| UML.md | UML diagrams | Class, sequence, component diagrams |
-| UseCases.md | Use Case Specification | Detailed flow for each UC |
+### 3.1 Current State (As-Is)
 
-### Task: Define Design Options
-| Option | Description | Recommendation |
-|--------|-------------|----------------|
-| Monolithic (legacy) | Per-module staging | Rejected — violates DRY |
-| Shared library (chosen) | Unified staging via Composer + hooks | **Selected** |
-| FA core integration | Modify FA core for staging | Rejected — too invasive |
+- Each import module has its own staging logic, tables, and processing code
+- Duplicate code across WooCommerce, Square API, Square CSV, PayPal, Bank Import
+- Inconsistent field handling and matching behavior
+- No unified matching or reconciliation across sources
+- No standardized hooks API for inter-module staging access
 
-### Task: Recommend Solution
-**Unified staging module** following AGENTS.md:
-- `src/Contracts/` — Service interfaces
-- `src/Models/` — DTOs
-- `src/DAO/` — Data access layer
-- `src/Services/` — Business logic
-- `src/Validators/` — Input validation
-- `src/Exceptions/` — Custom exceptions
-- `hooks.php` — FA integration with 4 standard methods
-- `sql/install.sql` — Unified schema with ALTER TABLE upgrades
+### 3.2 Desired State (To-Be)
 
----
+- Single unified staging schema shared across all import modules
+- Consistent pipeline: Stage → Validate → Match → Process → Audit
+- Scoring-based transaction matching (95% auto-approve, 80% review threshold)
+- Event-driven architecture for staging lifecycle events
+- Standard 4-method hooks API (`getModuleConstants`, `getModuleCapabilities`,
+  `hasCapability`, `respondToCapabilityRequest`)
+- Config delegation: source modules own GL/bank/payment config via `SourceConfig`
+- Backward-compatible ALTER TABLE schema upgrades (zero data loss)
+- 100% requirements↔code traceability via @BABOK tags + RTM
+- 100% test coverage (unit + integration + user)
 
-## Knowledge Area 6: Solution Evaluation
+### 3.3 Gap Analysis
 
-### Task: Measure Solution Performance
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Staging success rate | >99% | Success vs failed staging operations |
-| Match accuracy | >95% | Spot-check matched transactions |
-| Test coverage | 100% | PHPUnit coverage reports |
-
-### Task: Assess Solution Limitations
-| Limitation | Impact | Workaround | Enhancement Plan |
-|------------|--------|------------|------------------|
-| PHP 7.3 target | No 8.x features | Use compatible syntax | Plan PHP upgrade |
-| FA table prefix convention | Dynamic table names | Use TB_PREF constant | Standard FA pattern |
+| Gap | Current | Target | Solution | Related FR |
+|-----|---------|--------|----------|------------|
+| Staging duplication | Per-module tables | Unified schema | `staging_*` tables + DAO layer | FR-ISU-001 |
+| Processing inconsistency | Ad-hoc pipelines | Stage→Validate→Match→Process→Audit | `StagingService`, `ProcessingPipeline` | FR-ISU-002 |
+| Inter-module API | None | 4-method hooks contract | `hooks.php` responders | FR-ISU-003 |
+| Config coupling | ISU owns GL/bank | Source modules own config | `SourceConfig` value object | FR-ISU-010 |
+| Traceability | Ad-hoc docs | @BABOK tags + RTM | PHPDoc tags on every function | NFR-ISU-007 |
+| Test coverage | Partial | 100% unit + integration + user | PHPUnit + curl/chromium tests | NFR-ISU-008 |
 
 ---
 
-## BABOK Techniques Applied
+## 4. Business Requirements (BR)
+
+### BR-ISU-001: Unified Staging Management
+
+**Statement**: The system SHALL provide unified staging tables for customers,
+transactions, payments, line items, mapping config, and audit log, shared
+across all import sources.
+
+**Rationale**: Eliminates duplicate staging logic and enables cross-source
+matching and reconciliation.
+
+**Acceptance Criteria**:
+- `staging_customers` table exists with `source` column distinguishing origin
+- `staging_transactions` table exists with normalized common fields
+- `staging_payments` table exists for payment staging
+- `staging_mapping` table stores field mapping configuration per source
+- `staging_log` table records processing audit trail
+- Per-record status tracking (staged, validated, matched, processed, failed)
+
+**Related FRs**: FR-ISU-001 through FR-ISU-007
+
+---
+
+### BR-ISU-002: Processing Pipeline
+
+**Statement**: The system SHALL implement a consistent Stage → Validate → Match
+→ Process → Audit pipeline with scoring-based matching and configurable
+thresholds.
+
+**Rationale**: Standardizes behavior across sources and enables auto-approval
+of high-confidence matches.
+
+**Acceptance Criteria**:
+- Validate staged records against schema rules
+- Match staged transactions against existing FA transactions (scoring-based)
+- Auto-approve matches with >= 95% confidence
+- Flag matches between 80-95% for manual review
+- Process approved matches into FA entities
+- Log all processing steps in `staging_log`
+
+**Related FRs**: FR-ISU-008 through FR-ISU-014
+
+---
+
+### BR-ISU-003: Inter-Module Communication (Hooks API)
+
+**Statement**: The system SHALL expose a standard hooks-based API for
+inter-module staging access, implementing the 4-method discovery contract.
+
+**Rationale**: Source modules (Square, WooCommerce, etc.) must be able to
+stage data without knowing ISU's internal implementation.
+
+**Acceptance Criteria**:
+- `getModuleConstants()` returns module name and capabilities
+- `getModuleCapabilities()` returns capability definitions
+- `hasCapability()` reports whether a capability is supported
+- `respondToCapabilityRequest()` dispatches `staging:*`, `matching:*`,
+  `reconciliation:*`, `processing:*`, `mapping:*`, `audit:*` requests
+- `STAGE_ENTITY` / `STAGING_EXISTS` DTO-based responders available
+
+**Related FRs**: FR-ISU-015 through FR-ISU-020
+
+---
+
+### BR-ISU-004: Config Delegation
+
+**Statement**: The system SHALL delegate source-specific configuration
+(GL accounts, bank accounts, payment methods) to importing modules via the
+`SourceConfig` value object, retaining only source-agnostic settings.
+
+**Rationale**: ISU is a generic staging backend. Owning Square-specific GL
+accounts violates SRP and creates coupling.
+
+**Acceptance Criteria**:
+- `SourceConfig` value object carries source-specific GL/bank/payment values
+- ISU config table contains only source-agnostic fields
+- Processing methods accept `SourceConfig` from calling module
+- ISU falls back to generic defaults when source config not provided
+
+**Related FRs**: FR-ISU-010, FR-ISU-011
+
+---
+
+### BR-ISU-005: Duplicate Detection & Idempotency
+
+**Statement**: The system SHALL prevent re-import of already-staged records
+via source + source_id duplicate detection.
+
+**Rationale**: Re-importing the same CSV or API data must not create duplicate
+staging rows.
+
+**Acceptance Criteria**:
+- `transaction_id` / `source_payment_id` existence checked before insert
+- Duplicate records skipped with notification
+- Idempotent inserts (update-if-exists path available)
+
+**Related FRs**: FR-ISU-005, FR-ISU-006, FR-ISU-007
+
+---
+
+### BR-ISU-006: Backward-Compatible Schema Upgrades
+
+**Statement**: The system SHALL support backward-compatible ALTER TABLE
+schema upgrades for production data with zero data loss.
+
+**Rationale**: Existing `0_ksf_import_square_*` tables with matched data must
+be preserved during migration.
+
+**Acceptance Criteria**:
+- Install schema uses hardcoded `0_` company prefix
+- Upgrades use ALTER TABLE only, never DROP/recreate
+- `check_table()` gate prevents redundant imports
+
+**Related FRs**: FR-ISU-016
+
+---
+
+### BR-ISU-007: Traceability & Test Coverage
+
+**Statement**: The system SHALL maintain 100% requirements↔code traceability
+via `@BABOK` tags on all functions (rolled up to classes and files) and an
+RTM, with 100% test coverage.
+
+**Rationale**: Enables audit of requirement implementation and prevents
+undocumented code.
+
+**Acceptance Criteria**:
+- Every function carries `@BABOK Related: <ID>` in its docblock
+- Class and file docblocks roll up applicable requirement IDs
+- RTM traces every FR → UC → Code File → Test
+- 100% PHPUnit code coverage (unit + integration)
+- Integration + user tests via curl/chromium
+
+**Related FRs**: NFR-ISU-007, NFR-ISU-008
+
+---
+
+## 5. Non-Functional Requirements (NFR)
+
+| ID | Requirement | Target |
+|----|-------------|--------|
+| NFR-ISU-001 | PHP Compatibility | >=7.3 |
+| NFR-ISU-002 | FrontAccounting Version | 2.4.x |
+| NFR-ISU-003 | Database | MySQL/MariaDB with TB_PREF convention |
+| NFR-ISU-004 | Security | Input validation, SQL injection prevention, XSS protection, CSRF |
+| NFR-ISU-005 | Performance | Efficient queries with proper indexing, pagination |
+| NFR-ISU-006 | Error Handling | Custom exception hierarchy with factory methods |
+| NFR-ISU-007 | Traceability | @BABOK tags on all functions; RTM complete |
+| NFR-ISU-008 | Test Coverage | 100% unit + integration + user tests |
+| NFR-ISU-009 | Design Patterns | Strategy, Factory, Repository, Observer, DTO |
+
+---
+
+## 6. Use Cases (UC)
+
+| UC ID | Name | Trigger | Primary Actor | Related FRs |
+|-------|------|---------|---------------|-------------|
+| UC-ISU-001 | Stage Customer | Source module provides customer data | Source Module | FR-ISU-001, FR-ISU-005 |
+| UC-ISU-002 | Stage Transaction | Source module provides transaction data | Source Module | FR-ISU-002, FR-ISU-005 |
+| UC-ISU-003 | Stage Payment | Source module provides payment data | Source Module | FR-ISU-003, FR-ISU-005 |
+| UC-ISU-004 | Stage Line Item | Source module provides line item data | Source Module | FR-ISU-004 |
+| UC-ISU-005 | Validate Staged Record | Record inserted into staging | System (automatic) | FR-ISU-008 |
+| UC-ISU-006 | Match Transactions | Processing pipeline runs | FA Administrator / System | FR-ISU-009, FR-ISU-010 |
+| UC-ISU-007 | Auto-approve Match | Confidence >= 95% | System (automatic) | FR-ISU-010 |
+| UC-ISU-008 | Flag for Review | Confidence 80-95% | System (automatic) | FR-ISU-011 |
+| UC-ISU-009 | Process Approved Match | Match approved | FA Administrator / System | FR-ISU-012 |
+| UC-ISU-010 | Reconcile Payment | Payment staged | FA Administrator / System | FR-ISU-013, FR-ISU-014 |
+| UC-ISU-011 | Configure Mapping | Administrator sets up field mapping | FA Administrator | FR-ISU-015 |
+| UC-ISU-012 | Audit Trail Review | Any staging/processing operation | FA Administrator | FR-ISU-016 |
+| UC-ISU-013 | Schema Upgrade | Module installation/update | System (automatic) | FR-ISU-017 |
+| UC-ISU-014 | Capability Discovery | External module queries ISU | Source Module | FR-ISU-018, FR-ISU-019, FR-ISU-020 |
+
+---
+
+## 7. Functional Requirements (FR)
+
+### FR-ISU-001: staging_customers table
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-001-001 | System shall provide unified `staging_customers` table | Must |
+| FR-ISU-001-002 | `source` column distinguishes origin (woocommerce, square_api, square_csv, paypal, bank) | Must |
+| FR-ISU-001-003 | Per-record status tracking column | Must |
+
+### FR-ISU-002: staging_transactions table
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-002-001 | System shall provide unified `staging_transactions` table | Must |
+| FR-ISU-002-002 | Normalized common fields (total_amount, currency, source_transaction_id, etc.) | Must |
+| FR-ISU-002-003 | `source` column distinguishes origin | Must |
+
+### FR-ISU-003: staging_payments table
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-003-001 | System shall provide unified `staging_payments` table | Must |
+| FR-ISU-003-002 | Tenders, fees, net amounts, card details stored | Must |
+| FR-ISU-003-003 | `net_amount = amount - fee` auto-calculated if not provided | Must |
+
+### FR-ISU-004: staging_line_items table
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-004-001 | System shall provide line items linked to parent transaction | Must |
+| FR-ISU-004-002 | `staging_transaction_id` foreign key link | Must |
+
+### FR-ISU-005: Duplicate detection
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-005-001 | Check `source_transaction_id` existence before insert | Must |
+| FR-ISU-005-002 | Check `source_payment_id` existence before insert | Must |
+| FR-ISU-005-003 | Skip duplicates with notification | Must |
+| FR-ISU-005-004 | Idempotent update-if-exists path | Should |
+
+### FR-ISU-006: staging_mapping table
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-006-001 | System shall provide `staging_mapping` config table | Must |
+| FR-ISU-006-002 | Field mapping configuration per source | Must |
+
+### FR-ISU-007: staging_log table
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-007-001 | System shall provide `staging_log` audit table | Must |
+| FR-ISU-007-002 | Status, timestamps, errors recorded | Must |
+
+### FR-ISU-008: Validation
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-008-001 | Validate staged records against schema rules | Must |
+| FR-ISU-008-002 | ValidationService rejects invalid records | Must |
+
+### FR-ISU-009: Matching
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-009-001 | Match staged transactions against existing FA transactions | Must |
+| FR-ISU-009-002 | Scoring-based matching algorithm | Must |
+
+### FR-ISU-010: Auto-approve threshold
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-010-001 | Auto-approve matches with >= 95% confidence | Must |
+| FR-ISU-010-002 | Threshold configurable | Should |
+
+### FR-ISU-011: Review threshold
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-011-001 | Flag matches between 80-95% for manual review | Must |
+| FR-ISU-011-002 | Threshold configurable | Should |
+
+### FR-ISU-012: Process approved matches
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-012-001 | Process approved matches into FA entities | Must |
+| FR-ISU-012-002 | Delegate debtor creation to ksf_FA_Customer via CREATE_CUSTOMER | Must |
+
+### FR-ISU-013: Reconcile payments
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-013-001 | Reconcile staged payments against FA bank/debtor transactions | Must |
+| FR-ISU-013-002 | Scoring-based payment match (amount 40%, date 25%, reference 20%, method 15%) | Must |
+
+### FR-ISU-014: Auto-reconcile threshold
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-014-001 | Auto-reconcile payments with >= 95% match confidence | Must |
+| FR-ISU-014-002 | Flag 80-95% for manual review | Must |
+
+### FR-ISU-015: Field mapping configuration
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-015-001 | Store field mapping configuration per source | Must |
+| FR-ISU-015-002 | UI for staging management (optional) | Should |
+
+### FR-ISU-016: Audit logging
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-016-001 | Log all processing steps in `staging_log` | Must |
+| FR-ISU-016-002 | Log all events for audit purposes | Must |
+
+### FR-ISU-017: Backward-compatible schema
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-017-001 | Install schema uses hardcoded `0_` company prefix | Must |
+| FR-ISU-017-002 | Upgrades use ALTER TABLE only, never DROP/recreate | Must |
+| FR-ISU-017-003 | `check_table()` gate prevents redundant imports | Must |
+
+### FR-ISU-018: getModuleConstants
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-018-001 | Implement `getModuleConstants()` hook method | Must |
+| FR-ISU-018-002 | Return module name and capabilities | Must |
+
+### FR-ISU-019: getModuleCapabilities
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-019-001 | Implement `getModuleCapabilities()` hook method | Must |
+| FR-ISU-019-002 | Return capability definitions with methods and events | Must |
+
+### FR-ISU-020: hasCapability + respondToCapabilityRequest
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-020-001 | Implement `hasCapability()` hook method | Must |
+| FR-ISU-020-002 | Implement `respondToCapabilityRequest()` hook method | Must |
+| FR-ISU-020-003 | Dispatch `staging:*`, `matching:*`, `reconciliation:*`, `processing:*` requests | Must |
+
+### FR-ISU-021: SourceConfig value object
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-ISU-021-001 | Provide `SourceConfig` value object for source-specific config | Must |
+| FR-ISU-021-002 | Carry GL/bank/payment values per source | Must |
+| FR-ISU-021-003 | Immutable fluent setters (`with*`) | Should |
+
+---
+
+## 8. Solution Approach
+
+### 8.1 Architecture
+
+Layered architecture following AGENTS_ARCH conventions:
+
+```
+ksf_FA_ImportStagingProcessing/
+├── src/
+│   ├── Config/           — SourceConfig value object
+│   ├── Contracts/        — Interfaces (StagingManagerInterface, ProcessorInterface, etc.)
+│   ├── DAO/              — Data access layer (Table Gateway pattern)
+│   ├── Exceptions/       — Custom exception hierarchy
+│   ├── Models/           — StagingCustomer, StagingTransaction, etc.
+│   ├── Services/         — StagingService, ProcessingPipeline, MatchingService, DtoAdapter
+│   └── Validators/       — TransactionValidator, CustomerValidator, PaymentValidator
+├── hooks.php             — FA hooks integration (4-method contract + STAGE_* responders)
+├── ksf_import_staging.php — Module entry point
+├── pages/                — FA UI pages
+├── sql/                  — Database schemas (0_ prefix)
+└── tests/                — PHPUnit suite (Unit + Integration)
+```
+
+### 8.2 Data Flow
+
+```
+Source Module (Square/Woo/PayPal/Bank)
+  ↓ hook_invoke STAGE_* / respondToCapabilityRequest staging:*
+ISU Staging Tables (staging_customers, staging_transactions, staging_payments)
+  ↓ Validation (Validators)
+  ↓ Matching (MatchingService — scoring)
+  ↓ Processing (ProcessingPipeline → CREATE_CUSTOMER / CREATE_PAYMENT via hooks)
+FA Ledger (debtors, invoices, payments)
+  ↓ Audit Trail (staging_log)
+```
+
+### 8.3 External Dependencies
+
+- **ksf_FA_Common** — shared platform contracts (DateConverter, ContactResolver)
+- **ksf_FA_Customer** — CREATE_CUSTOMER responder (debtor creation)
+- **ksf_FA_Payment** — CREATE_PAYMENT responder (payment creation)
+- **ksfraser/staging-dto** — DTO package for cross-module staging
+- **ksfraser/ksf-modules-dao** — DAO base class
+- **ksfraser/traits** — reusable traits
+- **ksfraser/exceptions** — exception hierarchy
+- **ksfraser/file** — format-aware file IO
+- **ksfraser/famock** — FA mock routines for testing
+
+---
+
+## 9. Assumptions and Constraints
+
+### Assumptions
+- Source CSV/API formats are consistent and stable
+- FA 2.4.x is the target platform
+- MySQL/MariaDB is the database backend
+- PHP 7.3+ available on server
+
+### Constraints
+- PHP 7.3 compatibility (no PHP 8+ features)
+- FA's `db_query()` abstraction must be used for all database operations (PDO only in tests/standalone)
+- Security sections registered via `install_access()`
+- SQL tables use hardcoded `0_` company prefix
+- `@TB_PREF@` / `{TB_PREF}` not used in SQL files
+
+---
+
+## 10. Risks
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Data loss during schema migration | Critical | ALTER TABLE only, never DROP/recreate |
+| Breaking existing import flows | High | Full backward-compat testing |
+| PHP version constraints | Medium | Target PHP 7.3+, avoid 8+ features |
+| Date format mismatch across sources | High | DateConverterInterface with DI |
+| Duplicate data on re-import | High | Source + source_id duplicate detection |
+| Undocumented code (no @BABOK tags) | High | 100% tagging enforced via code review |
+
+---
+
+## 11. BABOK Techniques Applied
 
 | Technique | BABOK Ref | Application |
 |-----------|-----------|-------------|
-| Business Process Modeling | 10.4 | Import-to-processing workflow |
-| Data Flow Diagrams | 10.14 | Source -> Staging -> FA data movement |
+| Business Process Modeling | 10.4 | Import → staging → processing workflow |
+| Data Flow Diagrams | 10.14 | Source → Staging → FA data movement |
 | Data Modeling | 10.15 | Unified staging tables |
 | Document Analysis | 10.18 | Source module code review |
-| Functional Decomposition | 10.20 | Requirements -> Use Cases -> Code |
-| Interface Analysis | 10.25 | Module hook communication |
-| Metrics and KPIs | 10.28 | Success rate, accuracy |
+| Functional Decomposition | 10.20 | Requirements → Use Cases → Code → Tests |
+| Interface Analysis | 10.25 | Module hook communication (4-method contract) |
+| Metrics and KPIs | 10.28 | Test coverage, match accuracy |
 | Process Modeling | 10.35 | Stage, Validate, Match, Process flows |
 | Risk Analysis | 10.39 | Data loss, compat, PHP version |
 | Scope Modeling | 10.42 | In-scope / out-of-scope matrix |
-| Stakeholder List | 10.44 | FA Admin, Developers, Finance |
+| Stakeholder List | 10.44 | FA Admin, Developers, Finance, QA |
 | Traceability Matrix | 10.47 | RTM.md |
 | UML Diagrams | 10.48 | UML.md |
+
+---
+
+## 12. Requirements Traceability Summary
+
+| Requirement Type | ID Range | Count |
+|------------------|----------|-------|
+| Business Requirements (BR) | BR-ISU-001 to BR-ISU-007 | 7 |
+| Functional Requirements (FR) | FR-ISU-001-001 to FR-ISU-021-003 | ~50 |
+| Use Cases (UC) | UC-ISU-001 to UC-ISU-014 | 14 |
+| Non-Functional (NFR) | NFR-ISU-001 to NFR-ISU-009 | 9 |
+
+See **RTM.md** for the full Requirements Traceability Matrix mapping each
+requirement to use case, code file(s), and test case(s).

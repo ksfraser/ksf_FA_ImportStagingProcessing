@@ -3,6 +3,17 @@ declare(strict_types=1);
 
 namespace ksfraser\FrontAccounting\ImportStaging\Models;
 
+/**
+ * Data model for a field mapping configuration per source.
+ *
+ * Maps a source field to a target FA field with an optional transform and
+ * default value. Used by the staging pipeline to normalize inbound data.
+ *
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-006-001 staging_mapping config table
+ * @BABOK Related: FR-ISU-006-002 field mapping per source
+ * @BABOK Related: NFR-ISU-003 TB_PREF convention
+ */
 class StagingMapping
 {
     private ?int $id;
@@ -15,6 +26,13 @@ class StagingMapping
     private ?\DateTimeInterface $createdAt;
     private ?\DateTimeInterface $updatedAt;
 
+    /**
+     * @param string $source
+     * @param string $sourceField
+     * @param string $targetField
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-006-002 mapping creation
+     */
     public function __construct(string $source, string $sourceField, string $targetField)
     {
         $this->source = $source;
@@ -44,6 +62,11 @@ class StagingMapping
     public function isRequired(): bool { return $this->isRequired; }
     public function setIsRequired(bool $required): void { $this->isRequired = $required; }
 
+    /**
+     * @return array<string, mixed>
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-006-001 mapping serialization
+     */
     public function toArray(): array
     {
         return [
@@ -57,6 +80,12 @@ class StagingMapping
         ];
     }
 
+    /**
+     * @param array $data
+     * @return self
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-006-001 mapping hydration
+     */
     public static function fromArray(array $data): self
     {
         $mapping = new self(

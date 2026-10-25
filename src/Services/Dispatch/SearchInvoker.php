@@ -8,41 +8,15 @@ use ksfraser\FrontAccounting\ImportStaging\Services\Matching\MatchConfig;
 /**
  * SearchInvoker — asks "whoever can find this?" across every active module.
  *
- * WHY hook_invoke_all AND NOT hook_invoke_first. A lookup and a creation have
- * genuinely different shapes:
+ * Dispatches search capabilities (SEARCH_CUSTOMER, SEARCH_PAYMENT) via
+ * hook_invoke_all so every matching provider answers. A lookup legitimately
+ * has multiple answers (FA debtor, HRM employee, CRM contact, RBAC login);
+ * taking only the first would hide the collision dedupe exists to catch.
  *
- *   Creation has ONE provider. Two modules creating the same record would be a
- *       bug, so first-answer-wins is correct (see CreationInvoker).
- *
- *   Search has MANY providers, and that is the point. "Who is this person?"
- *       legitimately has answers in several places: an FA debtor
- *       (ksf_FA_Customer), an employee (ksf_FA_HRM), a CRM contact
- *       (ksf_FA_CRM), a login (ksf_FA_RBAC). The reviewer needs all of them,
- *       because "we already know this person" is true if ANY of them matches.
- *       Taking only the first answer would hide the very collision that dedupe
- *       exists to catch.
- *
- * MERGE BEHAVIOUR (verified). hook_invoke_all accumulates with
- * `array_merge_recursive($return, $result)` (includes/hooks.inc:301). Numeric
- * keys APPEND rather than interleave, so responders returning flat lists of
- * candidate rows concatenate cleanly in provider order.
- *
- * THE PROVENANCE RULE. That merge also means the caller cannot tell which
- * module produced which row, so every SEARCH_* responder MUST tag each row it
- * returns with `_module` (and is expected to add the native id plus an
- * `_entity` discriminator). This class measures compliance rather than trusting
- * it: rows arriving without `_module` are counted in `untagged` so the review
- * screen can flag them, instead of the candidate silently looking like it came
- * from nowhere.
- *
- * BY-REFERENCE HAZARD. The same array is passed to every responder in turn, so
- * a responder that writes into its payload corrupts the input of every module
- * after it. Search responders must treat the payload as read-only and return
- * their rows. This class hands each call a copy for the same reason.
- *
- * PHP 7.3 compatible.
- *
- * @package ksf_FA_ImportStagingProcessing
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-009-001 cross-module search
+ * @BABOK Related: FR-ISU-018-002 SearchInvoker dispatch
+ * @BABOK Related: NFR-ISU-009 Observer pattern
  */
 class SearchInvoker
 {
@@ -54,6 +28,8 @@ class SearchInvoker
     /**
      * @param MatchConfig|null $config    Supplies the +/-N day window
      * @param callable|null    $invokeAll Defaults to FA's hook_invoke_all
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-018-002 constructor
      */
     public function __construct(MatchConfig $config = null, $invokeAll = null)
     {
@@ -69,6 +45,17 @@ class SearchInvoker
      * @param string|null $date      'Y-m-d' anchor for the two-sided window
      * @return array ['candidates'=>array, 'untagged'=>int, 'capability'=>string,
      *               'searched'=>bool, 'window'=>array|null]
+     */
+    /**
+     * Search for candidates across every active module.
+     *
+     * @param string     $capability e.g. 'SEARCH_CUSTOMER'
+     * @param array      $criteria   Query terms (query/name/email/amount/reference...)
+     * @param string|null $date      'Y-m-d' anchor for the two-sided window
+     * @return array ['candidates'=>array, 'untagged'=>int, 'capability'=>string,
+     *               'searched'=>bool, 'window'=>array|null]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-018-002 search
      */
     public function search($capability, array $criteria, $date = null)
     {

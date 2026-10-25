@@ -6,12 +6,36 @@ namespace ksfraser\FrontAccounting\ImportStaging\DAO;
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingTransaction;
 use ksfraser\FrontAccounting\ImportStaging\Contracts\TransactionRepositoryInterface;
 
+/**
+ * DAO for the staging_transactions table.
+ *
+ * Implements TransactionRepositoryInterface. Provides CRUD and query
+ * operations for unified transaction staging records from all import sources.
+ *
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-002-001 staging_transactions table
+ * @BABOK Related: FR-ISU-002-002 normalized common fields
+ * @BABOK Related: FR-ISU-002-003 source column
+ * @BABOK Related: FR-ISU-005-001 duplicate detection (findBySource)
+ * @BABOK Related: FR-ISU-005-004 idempotent update (updateBySource)
+ * @BABOK Related: FR-ISU-009-002 matching input
+ * @BABOK Related: FR-ISU-012-001 fa_invoice_no / fa_debtor_no mapping
+ * @BABOK Related: FR-ISU-017-001 0_ company prefix
+ * @BABOK Related: NFR-ISU-003 TB_PREF convention
+ * @BABOK Related: NFR-ISU-009 Repository pattern
+ */
 class StagingTransactionDAO implements TransactionRepositoryInterface
 {
     private string $tablePrefix;
     private string $tableName;
     private \ksf_ModulesDAO $db;
 
+    /**
+     * @param string $tablePrefix
+     * @param \ksf_ModulesDAO $db
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-001 table name construction
+     */
     public function __construct(string $tablePrefix, \ksf_ModulesDAO $db)
     {
         $this->tablePrefix = $tablePrefix;
@@ -19,6 +43,12 @@ class StagingTransactionDAO implements TransactionRepositoryInterface
         $this->db = $db;
     }
 
+    /**
+     * Ensure the staging_transactions table exists (idempotent CREATE).
+     *
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-017-001 install schema
+     */
     public function ensureTableExists(): void
     {
         $sql = "CREATE TABLE IF NOT EXISTS {$this->tableName} (
@@ -57,6 +87,14 @@ class StagingTransactionDAO implements TransactionRepositoryInterface
         $this->db->query($sql);
     }
 
+    /**
+     * Insert a new staging transaction.
+     *
+     * @param StagingTransaction $transaction
+     * @return int
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-001 insert
+     */
     public function insert(StagingTransaction $transaction): int
     {
         $this->ensureTableExists();
@@ -96,6 +134,15 @@ class StagingTransactionDAO implements TransactionRepositoryInterface
         return $row ? StagingTransaction::fromArray($row) : null;
     }
 
+    /**
+     * Find a staging transaction by source + source_transaction_id (duplicate check).
+     *
+     * @param string $source
+     * @param string $sourceTransactionId
+     * @return StagingTransaction|null
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-001 findBySource
+     */
     public function findBySource(string $source, string $sourceTransactionId): ?StagingTransaction
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE source = ? AND source_transaction_id = ?";
@@ -103,6 +150,15 @@ class StagingTransactionDAO implements TransactionRepositoryInterface
         return $row ? StagingTransaction::fromArray($row) : null;
     }
 
+    /**
+     * Find staging transactions filtered by status and optionally source.
+     *
+     * @param string      $status
+     * @param string|null $source
+     * @return StagingTransaction[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-001 findByStatus
+     */
     public function findByStatus(string $status, ?string $source = null): array
     {
         if ($source) {
@@ -115,6 +171,16 @@ class StagingTransactionDAO implements TransactionRepositoryInterface
         return array_map(fn($row) => StagingTransaction::fromArray($row), $rows);
     }
 
+    /**
+     * Find staging transactions within a date range.
+     *
+     * @param \DateTimeInterface $from
+     * @param \DateTimeInterface $to
+     * @param string|null $source
+     * @return StagingTransaction[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-001 findByDateRange
+     */
     public function findByDateRange(\DateTimeInterface $from, \DateTimeInterface $to, ?string $source = null): array
     {
         if ($source) {
@@ -127,6 +193,16 @@ class StagingTransactionDAO implements TransactionRepositoryInterface
         return array_map(fn($row) => StagingTransaction::fromArray($row), $rows);
     }
 
+    /**
+     * Update the status and optional confidence/error of a staging transaction.
+     *
+     * @param int         $id
+     * @param string      $status
+     * @param float|null  $confidence
+     * @param string|null $error
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 updateStatus
+     */
     public function updateStatus(int $id, string $status, ?float $confidence = null, ?string $error = null): void
     {
         $fields = ['status = ?'];
@@ -144,6 +220,15 @@ class StagingTransactionDAO implements TransactionRepositoryInterface
         $this->db->query($sql, $params);
     }
 
+    /**
+     * Write the FA invoice/debtor reference onto a staging transaction.
+     *
+     * @param int $id
+     * @param int $invoiceNo
+     * @param int|null $debtorNo
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 updateFaReference
+     */
     public function updateFaReference(int $id, int $invoiceNo, ?int $debtorNo = null): void
     {
         if ($debtorNo !== null) {
@@ -155,6 +240,14 @@ class StagingTransactionDAO implements TransactionRepositoryInterface
         }
     }
 
+    /**
+     * Count staging transactions grouped by status.
+     *
+     * @param string|null $source
+     * @return array<string,int>
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-001 countByStatus
+     */
     public function countByStatus(?string $source = null): array
     {
         if ($source) {
@@ -171,6 +264,14 @@ class StagingTransactionDAO implements TransactionRepositoryInterface
         return $result;
     }
 
+    /**
+     * Update a staging transaction by source + source_transaction_id (idempotent upsert).
+     *
+     * @param StagingTransaction $transaction
+     * @return bool
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-005-004 updateBySource
+     */
     public function updateBySource(StagingTransaction $transaction): bool
     {
         $sql = "UPDATE {$this->tableName} SET
@@ -206,6 +307,15 @@ class StagingTransactionDAO implements TransactionRepositoryInterface
         return $this->db->affectedRows() > 0;
     }
 
+    /**
+     * Get transactions ready for processing (staged or validated).
+     *
+     * @param string|null $source
+     * @param int $limit
+     * @return StagingTransaction[]
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-012-001 getQueueForProcessing
+     */
     public function getQueueForProcessing(?string $source = null, int $limit = 100): array
     {
         $conditions = ["status IN ('staged', 'validated')"];

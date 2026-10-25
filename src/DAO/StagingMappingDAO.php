@@ -5,12 +5,29 @@ namespace ksfraser\FrontAccounting\ImportStaging\DAO;
 
 use ksfraser\FrontAccounting\ImportStaging\Models\StagingMapping;
 
+/**
+ * DAO for the staging_mapping field configuration table.
+ *
+ * Provides CRUD operations for field mapping configuration per source.
+ *
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-006-001 staging_mapping config table
+ * @BABOK Related: FR-ISU-006-002 field mapping per source
+ * @BABOK Related: FR-ISU-017-001 0_ company prefix
+ * @BABOK Related: NFR-ISU-003 TB_PREF convention
+ */
 class StagingMappingDAO
 {
     private string $tablePrefix;
     private string $tableName;
     private \ksf_ModulesDAO $db;
 
+    /**
+     * @param string $tablePrefix
+     * @param \ksf_ModulesDAO $db
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-006-001 table name construction
+     */
     public function __construct(string $tablePrefix, \ksf_ModulesDAO $db)
     {
         $this->tablePrefix = $tablePrefix;
@@ -18,6 +35,12 @@ class StagingMappingDAO
         $this->db = $db;
     }
 
+    /**
+     * Ensure the staging_mapping table exists (idempotent CREATE).
+     *
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-017-001 install schema
+     */
     public function ensureTableExists(): void
     {
         $sql = "CREATE TABLE IF NOT EXISTS {$this->tableName} (
@@ -37,6 +60,14 @@ class StagingMappingDAO
         $this->db->query($sql);
     }
 
+    /**
+     * Insert a staging mapping (upsert on duplicate source+source_field).
+     *
+     * @param StagingMapping $mapping
+     * @return int
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-006-002 insert
+     */
     public function insert(StagingMapping $mapping): int
     {
         $this->ensureTableExists();
@@ -76,6 +107,14 @@ class StagingMappingDAO
         return $row ? StagingMapping::fromArray($row) : null;
     }
 
+    /**
+     * Get all mappings for a source as a source_field → config array.
+     *
+     * @param string $source
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-006-002 getMappingArray
+     */
     public function getMappingArray(string $source): array
     {
         $mappings = $this->findBySource($source);

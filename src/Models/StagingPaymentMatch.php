@@ -3,6 +3,18 @@ declare(strict_types=1);
 
 namespace ksfraser\FrontAccounting\ImportStaging\Models;
 
+/**
+ * Data model for a payment-to-FA transaction match record.
+ *
+ * Records the match type, confidence, FA transaction reference, and match
+ * status for a staged payment during reconciliation.
+ *
+ * @since 2.0.0
+ * @BABOK Related: FR-ISU-013-001 payment reconciliation match record
+ * @BABOK Related: FR-ISU-013-002 match_type / match_confidence scoring
+ * @BABOK Related: FR-ISU-014-001 auto-reconcile match status
+ * @BABOK Related: NFR-ISU-003 TB_PREF convention
+ */
 class StagingPaymentMatch
 {
     private ?int $id;
@@ -18,6 +30,12 @@ class StagingPaymentMatch
     private ?\DateTimeInterface $createdAt;
     private ?\DateTimeInterface $updatedAt;
 
+    /**
+     * @param int $stagingPaymentId
+     * @param string $matchType
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-001 match record creation
+     */
     public function __construct(int $stagingPaymentId, string $matchType = 'none')
     {
         $this->stagingPaymentId = $stagingPaymentId;
@@ -61,6 +79,11 @@ class StagingPaymentMatch
     public function getUpdatedAt(): ?\DateTimeInterface { return $this->updatedAt; }
     public function setUpdatedAt(?\DateTimeInterface $dt): void { $this->updatedAt = $dt; }
 
+    /**
+     * @return array<string, mixed>
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-001 match record serialization
+     */
     public function toArray(): array
     {
         return [
@@ -77,6 +100,12 @@ class StagingPaymentMatch
         ];
     }
 
+    /**
+     * @param array $data
+     * @return self
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-001 match record hydration
+     */
     public static function fromArray(array $data): self
     {
         $match = new self(
