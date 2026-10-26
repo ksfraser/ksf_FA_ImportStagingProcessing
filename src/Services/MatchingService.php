@@ -465,6 +465,9 @@ class MatchingService implements MatchingServiceInterface
         return 'none';
     }
 
+    /**
+     * @BABOK Related: FR-ISU-009
+     */
     private function determineMatchType(float $score): string
     {
         if ($score >= $this->autoApproveThreshold) {
@@ -479,6 +482,9 @@ class MatchingService implements MatchingServiceInterface
         return 'unmatched';
     }
 
+    /**
+     * @BABOK Related: FR-ISU-009
+     */
     private function getMatchDetails(array $staged, array $existing): array
     {
         return [

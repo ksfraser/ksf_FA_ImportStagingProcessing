@@ -163,8 +163,19 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
+    /**
+     * @BABOK Related: FR-ISU-007
+     */
     private function handleStagingRequest($action, &$data, $opts)
     {
+        /**
+         * @param string $action
+         * @param array &$data
+         * @param array|null $opts
+         * @return ?array
+         * @since 2.0.0
+         * @BABOK Related: FR-ISU-020-003 handleStagingRequest
+         */
         $service = $this->getStagingService();
         switch ($action) {
             case 'stageCustomer':
@@ -301,6 +312,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
+    /**
+     * @BABOK Related: FR-ISU-007
+     */
     private function handleMatchingRequest($action, &$data, $opts)
     {
         switch ($action) {
@@ -322,6 +336,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
+    /**
+     * @BABOK Related: FR-ISU-007
+     */
     private function handleReconciliationRequest($action, &$data, $opts)
     {
         $service = $this->getStagingService();
@@ -651,6 +668,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
+    /**
+     * @BABOK Related: FR-ISU-007
+     */
     private function handleProcessingRequest($action, &$data, $opts)
     {
         switch ($action) {
@@ -678,6 +698,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
+    /**
+     * @BABOK Related: FR-ISU-007
+     */
     private function handleMappingRequest($action, &$data, $opts)
     {
         $data['error'] = 'Mapping actions not yet implemented in hooks handler: ' . $action;
@@ -708,6 +731,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         $loaded = true;
     }
 
+    /**
+     * @BABOK Related: FR-ISU-007
+     */
     private function getStagingService()
     {
         $this->ensureRuntimeAutoload();
@@ -729,6 +755,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         );
     }
 
+    /**
+     * @BABOK Related: FR-ISU-007
+     */
     private function getDtoAdapter()
     {
         $stagingService = $this->getStagingService();
@@ -743,6 +772,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         );
     }
 
+    /**
+     * @BABOK Related: FR-ISU-007
+     */
     private function getStagingById(int $id, string $entityType, $service): ?array
     {
         $this->ensureRuntimeAutoload();
@@ -767,6 +799,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
+    /**
+     * @BABOK Related: FR-ISU-007
+     */
     private function deleteStagingRecord(int $id, string $entityType, $service): void
     {
         $this->ensureRuntimeAutoload();
@@ -789,6 +824,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
+    /**
+     * @BABOK Related: FR-ISU-007
+     */
     private function getStatusCountsForSource(?string $source, ?string $env, $service): array
     {
         $this->ensureRuntimeAutoload();
@@ -834,6 +872,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
+    /**
+     * @BABOK Related: FR-ISU-007
+     */
     private function getItemsByTransactionId(int $stagingId, $service): array
     {
         $this->ensureRuntimeAutoload();
@@ -864,6 +905,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
      *
      * Calls the ksf_FA_RBAC authorize event if available. Returns true
      * (allow) when no RBAC module is installed or no user context exists.
+     */
+    /**
+     * @BABOK Related: FR-ISU-007
      */
     private function authorizeAction(
         string $action,
@@ -897,6 +941,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         return $result !== false;
     }
 
+    /**
+     * @BABOK Related: FR-ISU-007
+     */
     function install_tabs($app)
     {
     }

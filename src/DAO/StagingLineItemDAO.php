@@ -193,6 +193,9 @@ class StagingLineItemDAO implements LineItemRepositoryInterface
         return $items;
     }
 
+    /**
+     * @BABOK Related: FR-ISU-004
+     */
     public function findByStatus(string $status, ?string $source = null): array
     {
         $conditions = ["status = ?"];
@@ -217,6 +220,9 @@ class StagingLineItemDAO implements LineItemRepositoryInterface
         return $items;
     }
 
+    /**
+     * @BABOK Related: FR-ISU-004
+     */
     public function updateStatus(int $id, string $status, ?string $error = null): void
     {
         $sql = "UPDATE {$this->tableName}
@@ -284,6 +290,9 @@ class StagingLineItemDAO implements LineItemRepositoryInterface
         $this->db->query($sql, [$transactionId]);
     }
 
+    /**
+     * @BABOK Related: FR-ISU-004
+     */
     private function insertAttributes(int $lineItemId, array $attributes): void
     {
         foreach ($attributes as $key => $value) {
@@ -310,6 +319,9 @@ class StagingLineItemDAO implements LineItemRepositoryInterface
         return $attrs;
     }
 
+    /**
+     * @BABOK Related: FR-ISU-004
+     */
     private function deleteAttributes(int $lineItemId): void
     {
         $sql = "DELETE FROM {$this->attrTableName} WHERE line_item_id = ?";

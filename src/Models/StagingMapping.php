@@ -47,19 +47,50 @@ class StagingMapping
     }
 
     public function getId(): ?int { return $this->id; }
+    /**
+     * @param int $id
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-006-001 id
+     */
     public function setId(int $id): void { $this->id = $id; }
 
     public function getSource(): string { return $this->source; }
+    /**
+     * @return string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-006-002 source
+     */
     public function getSourceField(): string { return $this->sourceField; }
     public function getTargetField(): string { return $this->targetField; }
+    /**
+     * @param string $targetField
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-006-002 target_field
+     */
+    public function setTargetField(string $targetField): void { $this->targetField = $targetField; }
 
     public function getTransform(): string { return $this->transform; }
+    /**
+     * @param string $transform
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-006-002 transform
+     */
     public function setTransform(string $transform): void { $this->transform = $transform; }
 
     public function getDefaultValue(): ?string { return $this->defaultValue; }
+    /**
+     * @param ?string $value
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-006-002 default_value
+     */
     public function setDefaultValue(?string $value): void { $this->defaultValue = $value; }
 
     public function isRequired(): bool { return $this->isRequired; }
+    /**
+     * @param bool $required
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-006-002 is_required
+     */
     public function setIsRequired(bool $required): void { $this->isRequired = $required; }
 
     /**

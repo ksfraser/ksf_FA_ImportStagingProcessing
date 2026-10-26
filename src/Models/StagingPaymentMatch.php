@@ -49,34 +49,134 @@ class StagingPaymentMatch
 
     public function getStagingPaymentId(): int { return $this->stagingPaymentId; }
 
+    /**
+     * @param string $type
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 match_type
+     */
     public function getMatchType(): string { return $this->matchType; }
+    /**
+     * @param string $type
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 match_type
+     */
     public function setMatchType(string $type): void { $this->matchType = $type; }
 
+    /**
+     * @return ?float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 match_confidence
+     */
     public function getMatchConfidence(): ?float { return $this->matchConfidence; }
+    /**
+     * @param ?float $confidence
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 match_confidence
+     */
     public function setMatchConfidence(?float $confidence): void { $this->matchConfidence = $confidence; }
 
+    /**
+     * @return ?int
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 fa_trans_type
+     */
     public function getFaTransType(): ?int { return $this->faTransType; }
+    /**
+     * @param ?int $type
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 fa_trans_type
+     */
     public function setFaTransType(?int $type): void { $this->faTransType = $type; }
 
+    /**
+     * @return ?int
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 fa_trans_no
+     */
     public function getFaTransNo(): ?int { return $this->faTransNo; }
+    /**
+     * @param ?int $no
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 fa_trans_no
+     */
     public function setFaTransNo(?int $no): void { $this->faTransNo = $no; }
 
+    /**
+     * @return ?string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 fa_bank_account
+     */
     public function getFaBankAccount(): ?string { return $this->faBankAccount; }
+    /**
+     * @param ?string $acct
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 fa_bank_account
+     */
     public function setFaBankAccount(?string $acct): void { $this->faBankAccount = $acct; }
 
+    /**
+     * @return string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 match_status
+     */
     public function getMatchStatus(): string { return $this->matchStatus; }
+    /**
+     * @param string $status
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 match_status
+     */
     public function setMatchStatus(string $status): void { $this->matchStatus = $status; }
 
+    /**
+     * @return string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 matched_by
+     */
     public function getMatchedBy(): string { return $this->matchedBy; }
+    /**
+     * @param string $by
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 matched_by
+     */
     public function setMatchedBy(string $by): void { $this->matchedBy = $by; }
 
+    /**
+     * @return ?string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 notes
+     */
     public function getNotes(): ?string { return $this->notes; }
+    /**
+     * @param ?string $notes
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-013-002 notes
+     */
     public function setNotes(?string $notes): void { $this->notes = $notes; }
 
+    /**
+     * @return ?\DateTimeInterface
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 created_at
+     */
     public function getCreatedAt(): ?\DateTimeInterface { return $this->createdAt; }
+    /**
+     * @param ?\DateTimeInterface $dt
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 created_at
+     */
     public function setCreatedAt(?\DateTimeInterface $dt): void { $this->createdAt = $dt; }
 
+    /**
+     * @return ?\DateTimeInterface
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 updated_at
+     */
     public function getUpdatedAt(): ?\DateTimeInterface { return $this->updatedAt; }
+    /**
+     * @param ?\DateTimeInterface $dt
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 updated_at
+     */
     public function setUpdatedAt(?\DateTimeInterface $dt): void { $this->updatedAt = $dt; }
 
     /**

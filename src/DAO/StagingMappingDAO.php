@@ -92,6 +92,9 @@ class StagingMappingDAO
         return $id;
     }
 
+    /**
+     * @BABOK Related: FR-ISU-006
+     */
     public function findBySource(string $source): array
     {
         $this->ensureTableExists();
@@ -130,6 +133,9 @@ class StagingMappingDAO
         return $map;
     }
 
+    /**
+     * @BABOK Related: FR-ISU-006
+     */
     public function delete(int $id): void
     {
         $sql = "DELETE FROM {$this->tableName} WHERE id = ?";

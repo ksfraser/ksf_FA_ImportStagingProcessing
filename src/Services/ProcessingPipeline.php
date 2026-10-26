@@ -125,6 +125,9 @@ class ProcessingPipeline implements ProcessorInterface
     /**
      * Process a single payment record directly (bypasses queue).
      */
+    /**
+     * @BABOK Related: FR-ISU-012
+     */
     private function processSinglePayment(array $data): ProcessingResult
     {
         try {

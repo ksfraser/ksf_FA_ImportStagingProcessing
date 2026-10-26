@@ -167,6 +167,9 @@ class MatchConfig
      * @param string $date 'Y-m-d'
      * @return string 'Y-m-d'
      */
+    /**
+     * @BABOK Related: FR-ISU-010
+     */
     public function windowEnd($date)
     {
         return $this->shift($date, $this->windowDays);
@@ -195,6 +198,9 @@ class MatchConfig
      * @param float $confidence
      * @return bool
      */
+    /**
+     * @BABOK Related: FR-ISU-010
+     */
     public function shouldAutoApprove($confidence)
     {
         return (float)$confidence >= $this->autoApprove;
@@ -216,6 +222,9 @@ class MatchConfig
     /**
      * @return array
      */
+    /**
+     * @BABOK Related: FR-ISU-010
+     */
     public function toArray()
     {
         return array(
@@ -235,6 +244,9 @@ class MatchConfig
      * @param int    $days
      * @return string
      */
+    /**
+     * @BABOK Related: FR-ISU-010
+     */
     private function shift($date, $days)
     {
         $time = strtotime((string)$date);
@@ -253,6 +265,9 @@ class MatchConfig
      * @param callable $read
      * @return mixed|null
      */
+    /**
+     * @BABOK Related: FR-ISU-010
+     */
     private function lookup(array $overrides, $key, $read)
     {
         if (array_key_exists($key, $overrides)) {
@@ -268,6 +283,9 @@ class MatchConfig
      * Reads a company preference, degrading quietly outside FA.
      *
      * @return callable
+     */
+    /**
+     * @BABOK Related: FR-ISU-010
      */
     private function reader()
     {
@@ -286,6 +304,9 @@ class MatchConfig
      * @param mixed $value
      * @param int   $default
      * @return int
+     */
+    /**
+     * @BABOK Related: FR-ISU-010
      */
     private function intOr($value, $default)
     {
@@ -307,6 +328,9 @@ class MatchConfig
      * @param bool  $default
      * @return bool
      */
+    /**
+     * @BABOK Related: FR-ISU-010
+     */
     private function boolOr($value, $default)
     {
         if ($value === null) {
@@ -323,6 +347,9 @@ class MatchConfig
     /**
      * @param float $value
      * @return float
+     */
+    /**
+     * @BABOK Related: FR-ISU-010
      */
     private function clamp01($value)
     {

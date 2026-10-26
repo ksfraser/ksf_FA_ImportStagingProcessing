@@ -82,6 +82,51 @@ class StagingService implements StagingManagerInterface
         MatchingService $matchingService,
         array $validSources = ['woocommerce', 'square_api', 'square_csv', 'paypal', 'bank']
     ) {
+        /**
+         * @param CustomerRepositoryInterface $customerDAO
+         * @param TransactionRepositoryInterface $transactionDAO
+         * @param PaymentRepositoryInterface $paymentDAO
+         * @param PaymentMatchRepositoryInterface $paymentMatchDAO
+         * @param LineItemRepositoryInterface $lineItemDAO
+         * @param AuditLogRepositoryInterface $logDAO
+         * @param TransactionValidator $transactionValidator
+         * @param CustomerValidator $customerValidator
+         * @param PaymentValidator $paymentValidator
+         * @param MatchingService $matchingService
+         * @param array $validSources
+         * @since 2.0.0
+         * @BABOK Related: FR-ISU-001 through FR-ISU-014 constructor
+         */
+        /**
+         * @param CustomerRepositoryInterface $customerDAO
+         * @param TransactionRepositoryInterface $transactionDAO
+         * @param PaymentRepositoryInterface $paymentDAO
+         * @param PaymentMatchRepositoryInterface $paymentMatchDAO
+         * @param LineItemRepositoryInterface $lineItemDAO
+         * @param AuditLogRepositoryInterface $logDAO
+         * @param TransactionValidator $transactionValidator
+         * @param CustomerValidator $customerValidator
+         * @param PaymentValidator $paymentValidator
+         * @param MatchingService $matchingService
+         * @param array $validSources
+         * @since 2.0.0
+         * @BABOK Related: FR-ISU-001 through FR-ISU-014
+         */
+        /**
+         * @param CustomerRepositoryInterface $customerDAO
+         * @param TransactionRepositoryInterface $transactionDAO
+         * @param PaymentRepositoryInterface $paymentDAO
+         * @param PaymentMatchRepositoryInterface $paymentMatchDAO
+         * @param LineItemRepositoryInterface $lineItemDAO
+         * @param AuditLogRepositoryInterface $logDAO
+         * @param TransactionValidator $transactionValidator
+         * @param CustomerValidator $customerValidator
+         * @param PaymentValidator $paymentValidator
+         * @param MatchingService $matchingService
+         * @param array $validSources
+         * @since 2.0.0
+         * @BABOK Related: FR-ISU-001 through FR-ISU-014
+         */
         $this->customerDAO = $customerDAO;
         $this->transactionDAO = $transactionDAO;
         $this->paymentDAO = $paymentDAO;
@@ -744,6 +789,9 @@ class StagingService implements StagingManagerInterface
      * @param StagingTransaction|array $stagedRecord
      * @return array
      */
+    /**
+     * @BABOK Related: FR-ISU-001
+     */
     private function findExistingMatchRecords($stagedRecord): array
     {
         $existing = [];
@@ -811,6 +859,9 @@ class StagingService implements StagingManagerInterface
      * @param float|null    $amount
      * @return array
      */
+    /**
+     * @BABOK Related: FR-ISU-001
+     */
     private function searchCustomers(SearchInvoker $search, array $criteria, $date = null, $amount = null): array
     {
         if ($amount !== null) {
@@ -849,6 +900,9 @@ class StagingService implements StagingManagerInterface
      * @param string|null   $date
      * @param float|null    $amount
      * @return array
+     */
+    /**
+     * @BABOK Related: FR-ISU-001
      */
     private function searchPayments(SearchInvoker $search, array $criteria, $date = null, $amount = null): array
     {
@@ -891,6 +945,9 @@ class StagingService implements StagingManagerInterface
      * @param array $rows
      * @return array
      */
+    /**
+     * @BABOK Related: FR-ISU-001
+     */
     private function dedupeExisting(array $rows): array
     {
         $seen = array();
@@ -920,6 +977,9 @@ class StagingService implements StagingManagerInterface
      * Match tunables for this service.
      *
      * @return MatchConfig
+     */
+    /**
+     * @BABOK Related: FR-ISU-001
      */
     private function matchConfig(): MatchConfig
     {

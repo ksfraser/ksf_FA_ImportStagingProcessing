@@ -127,6 +127,9 @@ class StagingTransactionDAO implements TransactionRepositoryInterface
         return $id;
     }
 
+    /**
+     * @BABOK Related: FR-ISU-002
+     */
     public function findById(int $id): ?StagingTransaction
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE id = ?";

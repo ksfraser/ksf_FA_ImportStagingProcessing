@@ -56,6 +56,20 @@ class SourceConfig
      * @param int    $glAccount   GL account for card transactions
      * @param int    $bankAccount Bank account for deposits
      */
+    /**
+     * @param string $source      Source identifier (e.g., 'square')
+     * @param int    $glAccount   GL account for card transactions
+     * @param int    $bankAccount Bank account for deposits
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-021 constructor
+     */
+    /**
+     * @param string $source      Source identifier (e.g., 'square')
+     * @param int    $glAccount   GL account for card transactions
+     * @param int    $bankAccount Bank account for deposits
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-021 constructor
+     */
     public function __construct(
         string $source = '',
         int $glAccount = 0,

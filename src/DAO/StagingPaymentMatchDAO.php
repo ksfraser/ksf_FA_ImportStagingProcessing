@@ -99,6 +99,9 @@ class StagingPaymentMatchDAO implements PaymentMatchRepositoryInterface
         return $id;
     }
 
+    /**
+     * @BABOK Related: FR-ISU-003
+     */
     public function findById(int $id): ?StagingPaymentMatch
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE id = ?";
@@ -128,6 +131,9 @@ class StagingPaymentMatchDAO implements PaymentMatchRepositoryInterface
         return array_map(fn($row) => StagingPaymentMatch::fromArray($row), $rows);
     }
 
+    /**
+     * @BABOK Related: FR-ISU-003
+     */
     public function updateStatus(int $id, string $matchStatus, ?string $notes = null): void
     {
         if ($notes !== null) {

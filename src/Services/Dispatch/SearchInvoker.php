@@ -131,6 +131,9 @@ class SearchInvoker
      * @param string|null $date
      * @return array
      */
+    /**
+     * @BABOK Related: FR-ISU-009
+     */
     private function buildRequest(array $criteria, $date)
     {
         $request = $criteria;
@@ -158,6 +161,9 @@ class SearchInvoker
      *
      * @param mixed $reply
      * @return array|null
+     */
+    /**
+     * @BABOK Related: FR-ISU-009
      */
     private function extractRows($reply)
     {
@@ -197,6 +203,9 @@ class SearchInvoker
      *
      * @param array $candidates
      * @return array
+     */
+    /**
+     * @BABOK Related: FR-ISU-009
      */
     private function dedupe(array $candidates)
     {

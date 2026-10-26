@@ -131,6 +131,9 @@ class StagingPaymentDAO implements PaymentRepositoryInterface
         return $id;
     }
 
+    /**
+     * @BABOK Related: FR-ISU-003
+     */
     public function findById(int $id): ?StagingPayment
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE id = ?";
@@ -166,6 +169,9 @@ class StagingPaymentDAO implements PaymentRepositoryInterface
         return array_map(fn($row) => StagingPayment::fromArray($row), $rows);
     }
 
+    /**
+     * @BABOK Related: FR-ISU-003
+     */
     public function findByDateRange(\DateTimeInterface $from, \DateTimeInterface $to, ?string $source = null): array
     {
         if ($source) {

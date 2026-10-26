@@ -164,6 +164,9 @@ class LineItemComparer
      * @param float $priceTolerance
      * @return float
      */
+    /**
+     * @BABOK Related: FR-ISU-004
+     */
     private function lineScore(array $staged, array $existing, $priceTolerance)
     {
         // Stock code must agree before anything else counts. Without it, a
@@ -189,6 +192,9 @@ class LineItemComparer
      * @param string $b
      * @return bool
      */
+    /**
+     * @BABOK Related: FR-ISU-004
+     */
     private function stockMatches($a, $b)
     {
         if ($a === '' || $b === '') {
@@ -204,6 +210,9 @@ class LineItemComparer
      * @param float $a
      * @param float $b
      * @return float
+     */
+    /**
+     * @BABOK Related: FR-ISU-004
      */
     private function quantityScore($a, $b)
     {
@@ -247,6 +256,9 @@ class LineItemComparer
      * @param float $tolerance
      * @return float
      */
+    /**
+     * @BABOK Related: FR-ISU-004
+     */
     private function discountScore($a, $b, $tolerance)
     {
         $a = (float)$a;
@@ -270,6 +282,9 @@ class LineItemComparer
      *
      * @param array $lines
      * @return array
+     */
+    /**
+     * @BABOK Related: FR-ISU-004
      */
     private function normaliseLines(array $lines)
     {

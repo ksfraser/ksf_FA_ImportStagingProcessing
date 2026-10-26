@@ -42,6 +42,10 @@ class StagingLineItem
     /** @var array Key-value pairs for source-specific extra fields */
     private array $attributes = [];
 
+    /**
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004 constructor
+     */
     public function __construct()
     {
         $this->id = null;
@@ -147,53 +151,272 @@ class StagingLineItem
 
     // Getters
 
+    /**
+     * @BABOK Related: FR-ISU-004
+     */
     public function getId(): ?int { return $this->id; }
+    /**
+     * @return int
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-002 staging_transaction_id
+     */
     public function getStagingTransactionId(): int { return $this->stagingTransactionId; }
+    /**
+     * @return string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-003 source column
+     */
     public function getSource(): string { return $this->source; }
+    /**
+     * @return ?string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 source_id
+     */
     public function getSourceId(): ?string { return $this->sourceId; }
+    /**
+     * @return ?\DateTimeInterface
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 source_updated_at
+     */
     public function getSourceUpdatedAt(): ?\DateTimeInterface { return $this->sourceUpdatedAt; }
+    /**
+     * @return int
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 line_number
+     */
     public function getLineNumber(): int { return $this->lineNumber; }
+    /**
+     * @return ?string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 sku
+     */
     public function getSku(): ?string { return $this->sku; }
+    /**
+     * @return string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 name
+     */
     public function getName(): string { return $this->name; }
+    /**
+     * @return ?string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 description
+     */
     public function getDescription(): ?string { return $this->description; }
+    /**
+     * @return ?string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 item_type
+     */
     public function getItemType(): ?string { return $this->itemType; }
+    /**
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 quantity
+     */
     public function getQuantity(): float { return $this->quantity; }
+    /**
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 unit_price
+     */
     public function getUnitPrice(): float { return $this->unitPrice; }
+    /**
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 tax_amount
+     */
     public function getTaxAmount(): float { return $this->taxAmount; }
+    /**
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 tax_percent
+     */
     public function getTaxPercent(): float { return $this->taxPercent; }
+    /**
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 discount_amount
+     */
     public function getDiscountAmount(): float { return $this->discountAmount; }
+    /**
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 discount_percent
+     */
     public function getDiscountPercent(): float { return $this->discountPercent; }
+    /**
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 total_amount
+     */
     public function getTotalAmount(): float { return $this->totalAmount; }
+    /**
+     * @return string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 currency
+     */
     public function getCurrency(): string { return $this->currency; }
+    /**
+     * @return string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-003 status
+     */
     public function getStatus(): string { return $this->status; }
+    /**
+     * @return ?\DateTimeInterface
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 created_at
+     */
     public function getCreatedAt(): ?\DateTimeInterface { return $this->createdAt; }
+    /**
+     * @return ?\DateTimeInterface
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 updated_at
+     */
     public function getUpdatedAt(): ?\DateTimeInterface { return $this->updatedAt; }
+    /**
+     * @return array
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 attributes
+     */
     public function getAttributes(): array { return $this->attributes; }
+    /**
+     * @param string $key
+     * @return ?string
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 attribute
+     */
     public function getAttribute(string $key): ?string { return $this->attributes[$key] ?? null; }
 
     // Setters
 
     public function setId(int $id): void { $this->id = $id; }
+    /**
+     * @param int $id
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-002 staging_transaction_id
+     */
     public function setStagingTransactionId(int $id): void { $this->stagingTransactionId = $id; }
+    /**
+     * @param string $source
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-003 source column
+     */
     public function setSource(string $source): void { $this->source = $source; }
+    /**
+     * @param ?string $id
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 source_id
+     */
     public function setSourceId(?string $id): void { $this->sourceId = $id; }
+    /**
+     * @param ?\DateTimeInterface $dt
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-002-002 source_updated_at
+     */
     public function setSourceUpdatedAt(?\DateTimeInterface $dt): void { $this->sourceUpdatedAt = $dt; }
+    /**
+     * @param int $num
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 line_number
+     */
     public function setLineNumber(int $num): void { $this->lineNumber = $num; }
+    /**
+     * @param ?string $sku
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 sku
+     */
     public function setSku(?string $sku): void { $this->sku = $sku; }
+    /**
+     * @param string $name
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 name
+     */
     public function setName(string $name): void { $this->name = $name; }
+    /**
+     * @param ?string $desc
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 description
+     */
     public function setDescription(?string $desc): void { $this->description = $desc; }
+    /**
+     * @param ?string $type
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 item_type
+     */
     public function setItemType(?string $type): void { $this->itemType = $type; }
+    /**
+     * @param float $qty
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 quantity
+     */
     public function setQuantity(float $qty): void { $this->quantity = $qty; }
+    /**
+     * @param float $price
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 unit_price
+     */
     public function setUnitPrice(float $price): void { $this->unitPrice = $price; }
+    /**
+     * @param float $amount
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 tax_amount
+     */
     public function setTaxAmount(float $amount): void { $this->taxAmount = $amount; }
+    /**
+     * @param float $pct
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 tax_percent
+     */
     public function setTaxPercent(float $pct): void { $this->taxPercent = $pct; }
+    /**
+     * @param float $amount
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 discount_amount
+     */
     public function setDiscountAmount(float $amount): void { $this->discountAmount = $amount; }
+    /**
+     * @param float $pct
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 discount_percent
+     */
     public function setDiscountPercent(float $pct): void { $this->discountPercent = $pct; }
+    /**
+     * @param float $amount
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 total_amount
+     */
     public function setTotalAmount(float $amount): void { $this->totalAmount = $amount; }
+    /**
+     * @param string $currency
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 currency
+     */
     public function setCurrency(string $currency): void { $this->currency = $currency; }
+    /**
+     * @param string $status
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-001-003 status
+     */
     public function setStatus(string $status): void { $this->status = $status; }
+    /**
+     * @param ?\DateTimeInterface $dt
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 created_at
+     */
     public function setCreatedAt(?\DateTimeInterface $dt): void { $this->createdAt = $dt; }
+    /**
+     * @param ?\DateTimeInterface $dt
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-016-001 updated_at
+     */
     public function setUpdatedAt(?\DateTimeInterface $dt): void { $this->updatedAt = $dt; }
+    /**
+     * @param array $attrs
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-004-001 attributes
+     */
     public function setAttributes(array $attrs): void { $this->attributes = $attrs; }
     public function setAttribute(string $key, string $value): void { $this->attributes[$key] = $value; }
 }

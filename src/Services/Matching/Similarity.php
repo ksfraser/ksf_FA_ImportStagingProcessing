@@ -173,6 +173,9 @@ class Similarity
      * @param string $name
      * @return string
      */
+    /**
+     * @BABOK Related: FR-ISU-009
+     */
     public function surname($name)
     {
         $parts = preg_split('/\s+/', trim((string)$name));
@@ -188,6 +191,9 @@ class Similarity
      *
      * @param string $name
      * @return string
+     */
+    /**
+     * @BABOK Related: FR-ISU-009
      */
     public function firstName($name)
     {
@@ -205,6 +211,9 @@ class Similarity
      * @param string $value
      * @return string
      */
+    /**
+     * @BABOK Related: FR-ISU-009
+     */
     private function normalise($value)
     {
         $value = strtolower(trim((string)$value));
@@ -218,6 +227,9 @@ class Similarity
      *
      * @param string $char
      * @return string
+     */
+    /**
+     * @BABOK Related: FR-ISU-009
      */
     private function codeOf($char)
     {

@@ -218,6 +218,9 @@ class CreationInvoker
      * @param array $response
      * @return string|null
      */
+    /**
+     * @BABOK Related: FR-ISU-012
+     */
     private function moduleOf(array $response)
     {
         return isset($response['_module']) ? (string)$response['_module'] : null;

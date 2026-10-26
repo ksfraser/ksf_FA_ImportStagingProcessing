@@ -91,6 +91,9 @@ class StagingLogDAO implements AuditLogRepositoryInterface
         return (int)db_insert_id();
     }
 
+    /**
+     * @BABOK Related: FR-ISU-007
+     */
     public function findByRecord(string $recordType, int $recordId): array
     {
         $sql = "SELECT * FROM {$this->tableName} WHERE record_type = ? AND record_id = ? ORDER BY created_at DESC";
@@ -107,6 +110,9 @@ class StagingLogDAO implements AuditLogRepositoryInterface
         return $this->db->query($sql, [$action, $limit])->fetch_all();
     }
 
+    /**
+     * @BABOK Related: FR-ISU-007
+     */
     public function findByDateRange(\DateTimeInterface $from, \DateTimeInterface $to, ?string $action = null): array
     {
         if ($action) {
@@ -123,6 +129,9 @@ class StagingLogDAO implements AuditLogRepositoryInterface
         return $this->db->query($sql, [$limit])->fetch_all();
     }
 
+    /**
+     * @BABOK Related: FR-ISU-007
+     */
     public function countByAction(?string $source = null): array
     {
         if ($source) {
