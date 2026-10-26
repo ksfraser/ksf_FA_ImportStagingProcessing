@@ -48,12 +48,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
     }
 
     /**
-     * Return capability definitions with methods and events.
-     *
-     * @param array &$data
-     * @param array|null $opts
-     * @return array
-     * @since 2.0.0
      * @BABOK Related: FR-ISU-019-001 getModuleCapabilities
      */
     public function getModuleCapabilities(&$data, $opts = null)
@@ -90,12 +84,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
     }
 
     /**
-     * Report whether a capability is supported.
-     *
-     * @param array &$data
-     * @param array|null $opts
-     * @return bool
-     * @since 2.0.0
      * @BABOK Related: FR-ISU-020-001 hasCapability
      */
     public function hasCapability(&$data, $opts = null)
@@ -114,13 +102,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
     }
 
     /**
-     * Dispatch capability requests (staging:*, matching:*, reconciliation:*,
-     * processing:*, mapping:*, audit:*).
-     *
-     * @param array &$data
-     * @param array|null $opts
-     * @return array|null
-     * @since 2.0.0
      * @BABOK Related: FR-ISU-020-002 respondToCapabilityRequest
      * @BABOK Related: FR-ISU-020-003 request dispatch
      */
@@ -168,14 +149,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
      */
     private function handleStagingRequest($action, &$data, $opts)
     {
-        /**
-         * @param string $action
-         * @param array &$data
-         * @param array|null $opts
-         * @return ?array
-         * @since 2.0.0
-         * @BABOK Related: FR-ISU-020-003 handleStagingRequest
-         */
         $service = $this->getStagingService();
         switch ($action) {
             case 'stageCustomer':
@@ -312,9 +285,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
-    /**
-     * @BABOK Related: FR-ISU-007
-     */
     private function handleMatchingRequest($action, &$data, $opts)
     {
         switch ($action) {
@@ -336,9 +306,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
-    /**
-     * @BABOK Related: FR-ISU-007
-     */
     private function handleReconciliationRequest($action, &$data, $opts)
     {
         $service = $this->getStagingService();
@@ -390,287 +357,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
-    /**
-     * PROCESS_STAGING — Event handler invoked via hook_invoke_first().
-     *
-     * Processes all staged customers, transactions, and payments into FA.
-     * Delegates to ksf_FA_Customer and ksf_FA_Payment modules via
-     * CREATE_CUSTOMER and CREATE_PAYMENT events.
-     *
-     * @param array &$data Optional source filter
-     * @param array|null $opts Options
-     * @return array Result summary
-     * @since 2.0.0
-     * @BABOK Related: FR-ISU-012-001 PROCESS_STAGING
-     * @BABOK Related: FR-ISU-012-002 CREATE_CUSTOMER delegation
-     * @BABOK Related: FR-ISU-013-001 CREATE_PAYMENT delegation
-     */
-    public function PROCESS_STAGING(&$data, $opts = null)
-    {
-        if (!$this->authorizeAction('create', 'staging_record')) {
-            $data['error'] = 'Unauthorized: insufficient permissions to process staging records';
-            $data['success'] = false;
-            return null;
-        }
-
-        try {
-            $pipeline = $this->getProcessingPipeline();
-            $source = $opts['source'] ?? $data['source'] ?? null;
-            $result = $pipeline->processAll($source);
-            $data['result'] = [
-                'success' => $result->isSuccess(),
-                'record_id' => $result->getRecordId(),
-                'action' => $result->getAction(),
-                'errors' => $result->getErrors(),
-                'processed_ids' => $pipeline->getProcessedIds(),
-            ];
-            $data['success'] = $result->isSuccess();
-            return $data['result'];
-        } catch (\Exception $e) {
-            error_log('ksf_FA_ImportStagingProcessing: PROCESS_STAGING failed: ' . $e->getMessage());
-            $data['error'] = $e->getMessage();
-            $data['success'] = false;
-            return null;
-        }
-    }
-
-    /**
-     * STAGE_CUSTOMER — Event handler invoked via hook_invoke_first().
-     *
-     * Stages a customer record into the staging table for later processing.
-     *
-     * @param array &$data Must contain 'source' and 'customer' keys
-     * @param array|null $opts Options
-     * @return array|null Serialized StagingCustomer or null on failure
-     * @since 2.0.0
-     * @BABOK Related: FR-ISU-001-001 STAGE_CUSTOMER
-     * @BABOK Related: FR-ISU-016-001 event logging
-     */
-    public function STAGE_CUSTOMER(&$data, $opts = null)
-    {
-        $source = $opts['source'] ?? $data['source'] ?? '';
-        $customerData = $opts['customer'] ?? $data['customer'] ?? [];
-
-        if (!$this->authorizeAction('create', 'staging_customer')) {
-            $data['error'] = 'Unauthorized';
-            $data['success'] = false;
-            return null;
-        }
-
-        try {
-            $service = $this->getStagingService();
-            $result = $service->stageCustomer($customerData, $source);
-            $arr = $result->toArray();
-            $arr['_event'] = 'CUSTOMER_STAGED';
-            $arr['_module'] = $this->module_name;
-            $data['result'] = $arr;
-            $data['success'] = true;
-            return $arr;
-        } catch (\Exception $e) {
-            error_log('STAGE_CUSTOMER failed: ' . $e->getMessage());
-            $data['error'] = $e->getMessage();
-            $data['success'] = false;
-            return null;
-        }
-    }
-
-    /**
-     * STAGE_TRANSACTION — Event handler invoked via hook_invoke_first().
-     *
-     * Stages a transaction record into the staging table for later processing.
-     *
-     * @param array &$data Must contain 'source' and 'transaction' keys
-     * @param array|null $opts Options
-     * @return array|null Serialized StagingTransaction or null on failure
-     * @since 2.0.0
-     * @BABOK Related: FR-ISU-002-001 STAGE_TRANSACTION
-     * @BABOK Related: FR-ISU-016-001 event logging
-     */
-    public function STAGE_TRANSACTION(&$data, $opts = null)
-    {
-        $source = $opts['source'] ?? $data['source'] ?? '';
-        $txnData = $opts['transaction'] ?? $data['transaction'] ?? [];
-
-        if (!$this->authorizeAction('create', 'staging_transaction')) {
-            $data['error'] = 'Unauthorized';
-            $data['success'] = false;
-            return null;
-        }
-
-        try {
-            $service = $this->getStagingService();
-            $result = $service->stageTransaction($txnData, $source);
-            $arr = $result->toArray();
-            $arr['_event'] = 'TRANSACTION_STAGED';
-            $arr['_module'] = $this->module_name;
-            $data['result'] = $arr;
-            $data['success'] = true;
-            return $arr;
-        } catch (\Exception $e) {
-            error_log('STAGE_TRANSACTION failed: ' . $e->getMessage());
-            $data['error'] = $e->getMessage();
-            $data['success'] = false;
-            return null;
-        }
-    }
-
-    /**
-     * STAGE_PAYMENT — Event handler invoked via hook_invoke_first().
-     *
-     * Stages a payment record into the staging table for later reconciliation
-     * and processing.
-     *
-     * @param array &$data Must contain 'source' and 'payment' keys
-     * @param array|null $opts Options
-     * @return array|null Serialized StagingPayment or null on failure
-     * @since 2.0.0
-     * @BABOK Related: FR-ISU-003-001 STAGE_PAYMENT
-     * @BABOK Related: FR-ISU-016-001 event logging
-     */
-    public function STAGE_PAYMENT(&$data, $opts = null)
-    {
-        $source = $opts['source'] ?? $data['source'] ?? '';
-        $paymentData = $opts['payment'] ?? $data['payment'] ?? [];
-        $stagingTransactionId = isset($opts['staging_transaction_id'])
-            ? (int) $opts['staging_transaction_id']
-            : (isset($data['staging_transaction_id']) ? (int) $data['staging_transaction_id'] : null);
-
-        if (!$this->authorizeAction('create', 'staging_payment')) {
-            $data['error'] = 'Unauthorized';
-            $data['success'] = false;
-            return null;
-        }
-
-        try {
-            $service = $this->getStagingService();
-            $result = $service->stagePayment($paymentData, $source, $stagingTransactionId);
-            $arr = $result->toArray();
-            $arr['_event'] = 'PAYMENT_STAGED';
-            $arr['_module'] = $this->module_name;
-            $data['result'] = $arr;
-            $data['success'] = true;
-            return $arr;
-        } catch (\Exception $e) {
-            error_log('STAGE_PAYMENT failed: ' . $e->getMessage());
-            $data['error'] = $e->getMessage();
-            $data['success'] = false;
-            return null;
-        }
-    }
-
-    /**
-     * STAGE_ENTITY — Generic hook for staging any DTO subclass.
-     *
-     * Accepts ksfraser/staging-dto DTOs and routes to appropriate staging
-     * method. Replaces type-specific STAGE_* events with one polymorphic entry
-     * point. Replaces $data wholesale (by-reference contract) rather than
-     * writing array offsets onto a DTO.
-     *
-     * @param mixed &$data The DTO object (passed by reference for hook compatibility)
-     * @param array|null $opts Options
-     * @return array|null StagingExistsResult as array, or null on failure
-     * @since 2.0.0
-     * @BABOK Related: FR-ISU-009-002 STAGE_ENTITY
-     * @BABOK Related: FR-ISU-005-007 duplicate detection via DTO
-     */
-    public function STAGE_ENTITY(&$data, $opts = null)
-    {
-        // Callers may pass either an array or a DTO instance (by reference).
-        // This responder REQUIRES the DTO, so it must never write array offsets
-        // onto $data -- StagingEntity implements JsonSerializable, not
-        // ArrayAccess, so "$data['result'] = ..." fatals with
-        // "Cannot use object of type ... as array". The by-reference-safe
-        // contract is: replace $data wholesale with a response array.
-        if (!$data instanceof \Ksfraser\StagingDto\StagingEntity) {
-            $data = [
-                'error' => 'stageEntity requires a StagingEntity DTO instance',
-                'success' => false,
-            ];
-            return null;
-        }
-
-        $dto = $data;
-
-        if (!$this->authorizeAction('create', 'staging_' . (new \ReflectionClass($dto))->getShortName())) {
-            $data = [
-                'error' => 'Unauthorized',
-                'success' => false,
-            ];
-            return null;
-        }
-
-        try {
-            $adapter = $this->getDtoAdapter();
-            $result = $adapter->stageEntity($dto);
-            $arr = $result->toArray();
-            $arr['_event'] = 'ENTITY_STAGED';
-            $arr['_module'] = $this->module_name;
-            $arr['_dto_type'] = (new \ReflectionClass($dto))->getShortName();
-
-            $data = [
-                'success' => $result->getExists(),
-                'result' => $arr,
-            ];
-            return $arr;
-        } catch (\Exception $e) {
-            error_log('STAGE_ENTITY failed: ' . $e->getMessage());
-            $data = [
-                'error' => $e->getMessage(),
-                'success' => false,
-            ];
-            return null;
-        }
-    }
-
-    /**
-     * STAGING_EXISTS — Check if a staging entity exists.
-     *
-     * Accepts a StagingExistsQuery DTO and returns StagingExistsResult.
-     * Replaces $data wholesale (by-reference contract).
-     *
-     * @param mixed &$data The query DTO object
-     * @param array|null $opts Options
-     * @return array|null StagingExistsResult as array
-     * @since 2.0.0
-     * @BABOK Related: FR-ISU-005-007 STAGING_EXISTS
-     */
-    public function STAGING_EXISTS(&$data, $opts = null)
-    {
-        // Same by-reference rule as STAGE_ENTITY: $data is a StagingExistsQuery
-        // DTO here, so replace it wholesale instead of writing array offsets.
-        if (!$data instanceof \Ksfraser\StagingDto\StagingExistsQuery) {
-            $data = [
-                'error' => 'stagingExists requires a StagingExistsQuery DTO instance',
-                'success' => false,
-            ];
-            return null;
-        }
-
-        try {
-            $adapter = $this->getDtoAdapter();
-            $result = $adapter->stagingExists($data);
-            $arr = $result->toArray();
-            $arr['_event'] = 'ENTITY_EXISTS_CHECKED';
-            $arr['_module'] = $this->module_name;
-
-            $data = [
-                'success' => true,
-                'result' => $arr,
-            ];
-            return $arr;
-        } catch (\Exception $e) {
-            error_log('STAGING_EXISTS failed: ' . $e->getMessage());
-            $data = [
-                'error' => $e->getMessage(),
-                'success' => false,
-            ];
-            return null;
-        }
-    }
-
-    /**
-     * @BABOK Related: FR-ISU-007
-     */
     private function handleProcessingRequest($action, &$data, $opts)
     {
         switch ($action) {
@@ -698,9 +384,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
-    /**
-     * @BABOK Related: FR-ISU-007
-     */
     private function handleMappingRequest($action, &$data, $opts)
     {
         $data['error'] = 'Mapping actions not yet implemented in hooks handler: ' . $action;
@@ -731,33 +414,30 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         $loaded = true;
     }
 
-    /**
-     * @BABOK Related: FR-ISU-007
-     */
     private function getStagingService()
     {
-        $this->ensureRuntimeAutoload();
-        $tablePrefix = defined('TB_PREF') ? TB_PREF : '0_';
-        $db = new \ksf_ModulesDAO();
-        $customerDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
-        $transactionDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
-        $paymentDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
-        $paymentMatchDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentMatchDAO($tablePrefix, $db);
-        $lineItemDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingLineItemDAO($tablePrefix, $db);
-        $logDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingLogDAO($tablePrefix, $db);
-        $txnValidator = new \ksfraser\FrontAccounting\ImportStaging\Validators\TransactionValidator();
-        $custValidator = new \ksfraser\FrontAccounting\ImportStaging\Validators\CustomerValidator();
-        $paymentValidator = new \ksfraser\FrontAccounting\ImportStaging\Validators\PaymentValidator();
-        $matchingService = new \ksfraser\FrontAccounting\ImportStaging\Services\MatchingService();
-        return new \ksfraser\FrontAccounting\ImportStaging\Services\StagingService(
-            $customerDAO, $transactionDAO, $paymentDAO, $paymentMatchDAO,
-            $lineItemDAO, $logDAO, $txnValidator, $custValidator, $paymentValidator, $matchingService
-        );
+        static $service = null;
+        if ($service === null) {
+            $this->ensureRuntimeAutoload();
+            $tablePrefix = defined('TB_PREF') ? TB_PREF : '0_';
+            $db = new \ksf_ModulesDAO();
+            $customerDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
+            $transactionDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
+            $paymentDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
+            $paymentMatchDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentMatchDAO($tablePrefix, $db);
+            $lineItemDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingLineItemDAO($tablePrefix, $db);
+            $logDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingLogDAO($tablePrefix, $db);
+            $service = new \ksfraser\FrontAccounting\ImportStaging\Services\StagingService(
+                $customerDAO, $transactionDAO, $paymentDAO, $paymentMatchDAO,
+                $lineItemDAO, $logDAO, new \ksfraser\FrontAccounting\ImportStaging\Validators\TransactionValidator(),
+                new \ksfraser\FrontAccounting\ImportStaging\Validators\CustomerValidator(),
+                new \ksfraser\FrontAccounting\ImportStaging\Validators\PaymentValidator(),
+                new \ksfraser\FrontAccounting\ImportStaging\Services\MatchingService()
+            );
+        }
+        return $service;
     }
 
-    /**
-     * @BABOK Related: FR-ISU-007
-     */
     private function getDtoAdapter()
     {
         $stagingService = $this->getStagingService();
@@ -772,9 +452,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         );
     }
 
-    /**
-     * @BABOK Related: FR-ISU-007
-     */
     private function getStagingById(int $id, string $entityType, $service): ?array
     {
         $this->ensureRuntimeAutoload();
@@ -799,9 +476,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
-    /**
-     * @BABOK Related: FR-ISU-007
-     */
     private function deleteStagingRecord(int $id, string $entityType, $service): void
     {
         $this->ensureRuntimeAutoload();
@@ -821,12 +495,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
                 $dao = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
                 $dao->delete($id);
                 break;
-        }
+            }
     }
 
-    /**
-     * @BABOK Related: FR-ISU-007
-     */
     private function getStatusCountsForSource(?string $source, ?string $env, $service): array
     {
         $this->ensureRuntimeAutoload();
@@ -869,12 +540,9 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
                     $dao->update($record);
                 }
                 break;
-        }
+            }
     }
 
-    /**
-     * @BABOK Related: FR-ISU-007
-     */
     private function getItemsByTransactionId(int $stagingId, $service): array
     {
         $this->ensureRuntimeAutoload();
@@ -900,15 +568,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         );
     }
 
-    /**
-     * Check authorization via hook_invoke_first('authorize').
-     *
-     * Calls the ksf_FA_RBAC authorize event if available. Returns true
-     * (allow) when no RBAC module is installed or no user context exists.
-     */
-    /**
-     * @BABOK Related: FR-ISU-007
-     */
     private function authorizeAction(
         string $action,
         string $resourceType = 'staging_record',
@@ -941,20 +600,10 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         return $result !== false;
     }
 
-    /**
-     * @BABOK Related: FR-ISU-007
-     */
     function install_tabs($app)
     {
     }
 
-    /**
-     * Install security sections and areas for the module.
-     *
-     * @return array [$security_areas, $security_sections]
-     * @since 2.0.0
-     * @BABOK Related: NFR-ISU-004 security areas
-     */
     function install_access()
     {
         $security_sections[SS_ksf_FA_ImportStagingProcessing] = _("Import Staging");
@@ -970,17 +619,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         return array($security_areas, $security_sections);
     }
 
-    /**
-     * Activate the extension: import install.sql schema via update_databases.
-     *
-     * @param int $company
-     * @param bool $check_only
-     * @return bool
-     * @since 2.0.0
-     * @BABOK Related: FR-ISU-017-001 activate_extension
-     * @BABOK Related: FR-ISU-017-002 ALTER TABLE only
-     * @BABOK Related: FR-ISU-017-003 check_table gate
-     */
     function activate_extension($company, $check_only = true)
     {
         if (file_exists(dirname(__FILE__) . '/sql/install.sql')) {
@@ -999,12 +637,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         global $path_to_root;
     }
 
-    /**
-     * Ensure composer dependencies are installed (vendor/autoload.php).
-     *
-     * @since 2.0.0
-     * @BABOK Related: NFR-ISU-002 FA 2.4.x integration
-     */
     private function ensure_composer_dependencies()
     {
         $module_dir = dirname(__FILE__);
