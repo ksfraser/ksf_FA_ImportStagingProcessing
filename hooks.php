@@ -600,23 +600,101 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         return $result !== false;
     }
 
+    /**
+     * @BABOK Related: FR-ISU-015-002 staging management UI
+     * @BABOK Related: NFR-ISU-004 security areas
+     */
     function install_tabs($app)
     {
+        global $path_to_root;
+
+        switch ($app->id) {
+            case 'orders':
+                $app->add_rapp_function(
+                    3,
+                    _('Import Staging'),
+                    $path_to_root . '/modules/' . $this->module_name . '/pages/import_statements.php',
+                    'SA_ksf_FA_ImportStagingProcessing',
+                    MENU_MAIN
+                );
+                $app->add_rapp_function(
+                    3,
+                    _('Process Staging'),
+                    $path_to_root . '/modules/' . $this->module_name . '/pages/process_statements.php',
+                    'SA_ksf_FA_ImportStagingProcessingMANAGE',
+                    MENU_MAIN
+                );
+                $app->add_rapp_function(
+                    3,
+                    _('View Staged'),
+                    $path_to_root . '/modules/' . $this->module_name . '/pages/view_statements.php',
+                    'SA_ksf_FA_ImportStagingProcessingVIEW',
+                    MENU_MAIN
+                );
+                break;
+            case 'stock':
+                $app->add_rapp_function(
+                    3,
+                    _('ISU Item Staging'),
+                    $path_to_root . '/modules/' . $this->module_name . '/pages/admin.php',
+                    'SA_ksf_FA_ImportStagingProcessing',
+                    MENU_MAIN
+                );
+                break;
+            case 'system':
+                $app->add_rapp_function(
+                    3,
+                    _('ISU Configuration'),
+                    $path_to_root . '/modules/' . $this->module_name . '/pages/config.php',
+                    'SA_ksf_FA_ImportStagingProcessingMANAGE',
+                    MENU_MAIN
+                );
+                break;
+        }
     }
 
+    /**
+     * @BABOK Related: NFR-ISU-004 security areas
+     */
     function install_access()
     {
-        $security_sections[SS_ksf_FA_ImportStagingProcessing] = _("Import Staging");
+        $SS = SS_ksf_FA_ImportStagingProcessing;
+        $security_sections[$SS] = _("Import Staging");
         $security_areas['SA_ksf_FA_ImportStagingProcessing'] = array(
-            SS_ksf_FA_ImportStagingProcessing | 108, _("Import Staging Processing")
+            $SS | 108, _("Import Staging Processing")
         );
         $security_areas['SA_ksf_FA_ImportStagingProcessingVIEW'] = array(
-            SS_ksf_FA_ImportStagingProcessing | 1, _("View Import Staging")
+            $SS | 1, _("View Import Staging")
         );
         $security_areas['SA_ksf_FA_ImportStagingProcessingMANAGE'] = array(
-            SS_ksf_FA_ImportStagingProcessing | 2, _("Manage Import Staging")
+            $SS | 2, _("Manage Import Staging")
+        );
+        // UI page security areas (for backward compatibility)
+        $security_sections[SS_ksf_FA_ImportStagingProcessing_UI] = _("Import Staging Processing UI");
+        $security_areas['SA_ksf_FA_ImportStagingProcessing_UI'] = array(
+            SS_ksf_FA_ImportStagingProcessing_UI | 108, _("Import Staging Processing UI")
+        );
+        $security_areas['SA_ksf_FA_ImportStagingProcessing_UIVIEW'] = array(
+            SS_ksf_FA_ImportStagingProcessing_UI | 1, _("View Import Staging")
+        );
+        $security_areas['SA_ksf_FA_ImportStagingProcessing_UIMANAGE'] = array(
+            SS_ksf_FA_ImportStagingProcessing_UI | 2, _("Manage Import Staging")
         );
         return array($security_areas, $security_sections);
+    }
+
+    function activate_extension($company, $check_only = true)
+    {
+        if ($check_only) {
+            return true;
+        }
+
+        if (file_exists(dirname(__FILE__) . '/sql/install.sql')) {
+            $updates = array('install.sql' => array($this->module_name));
+            return $this->update_databases($company, $updates, $check_only);
+        }
+
+        return true;
     }
 
     function activate_extension($company, $check_only = true)
