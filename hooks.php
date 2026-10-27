@@ -22,6 +22,7 @@ declare(strict_types=1);
  * @BABOK Related: FR-ISU-009-002 STAGE_ENTITY / STAGING_EXISTS DTO responders
  * @BABOK Related: FR-ISU-012-001 PROCESS_STAGING event handler
  * @BABOK Related: FR-ISU-017-001 install schema via activate_extension
+ * @BABOK Related: FR-ISU-015-003 lapp/rapp menu registration
  * @BABOK Related: NFR-ISU-007 @BABOK traceability
  * @BABOK Related: NFR-ISU-010 native db_* calls only
  */
@@ -35,6 +36,27 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
     function __construct()
     {
         $this->module_name = 'ksf_FA_ImportStagingProcessing';
+        $this->registerMenuItems();
+    }
+
+    /**
+     * Register left/right menu items so the module is reachable from the FA UI.
+     *
+     * @BABOK Related: FR-ISU-015-003 lapp/rapp menu registration
+     */
+    private function registerMenuItems(): void
+    {
+        if (!function_exists('lapp') && !function_exists('rapp')) {
+            return;
+        }
+
+        $modulePath = 'modules/' . KSF_IMPORT_STAGING_MODULE_NAME;
+
+        lapp('import_staging', $modulePath . '/ksf_import_staging.php', _('Import Staging'), 'SA_ksf_FA_ImportStagingProcessing');
+        lapp('import_staging', $modulePath . '/pages/config.php', _('ISU Configuration'), 'SA_ksf_FA_ImportStagingProcessing_UI');
+
+        rapp('import_staging', $modulePath . '/ksf_import_staging.php', _('Staging Dashboard'), 'SA_ksf_FA_ImportStagingProcessing');
+        rapp('import_staging', $modulePath . '/pages/config.php', _('ISU Config'), 'SA_ksf_FA_ImportStagingProcessing_UI');
     }
 
     public function getModuleConstants(&$data, $opts = null)
@@ -47,9 +69,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         return $constants;
     }
 
-    /**
-     * @BABOK Related: FR-ISU-019-001 getModuleCapabilities
-     */
     public function getModuleCapabilities(&$data, $opts = null)
     {
         $capabilities = [
@@ -83,9 +102,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         return $capabilities;
     }
 
-    /**
-     * @BABOK Related: FR-ISU-020-001 hasCapability
-     */
     public function hasCapability(&$data, $opts = null)
     {
         $capability = $opts['capability'] ?? $data['capability'] ?? null;
@@ -101,10 +117,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         return $hasCapability;
     }
 
-    /**
-     * @BABOK Related: FR-ISU-020-002 respondToCapabilityRequest
-     * @BABOK Related: FR-ISU-020-003 request dispatch
-     */
     public function respondToCapabilityRequest(&$data, $opts = null)
     {
         $request = $opts['request'] ?? $data['request'] ?? 'capabilities';
@@ -144,145 +156,212 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
     }
 
-    /**
-     * @BABOK Related: FR-ISU-007
-     */
     private function handleStagingRequest($action, &$data, $opts)
     {
         $service = $this->getStagingService();
         switch ($action) {
             case 'stageCustomer':
-                $source = $opts['source'] ?? $data['source'] ?? '';
-                $customerData = $opts['customer'] ?? $data['customer'] ?? [];
-                if (!$this->authorizeAction('create', 'staging_customer')) {
-                    $data['error'] = 'Unauthorized: insufficient permissions to stage customers';
-                    $data['success'] = false;
-                    return null;
-                }
-                try {
-                    $result = $service->stageCustomer($customerData, $source);
-                    $data['result'] = $result->toArray();
-                    $data['success'] = true;
-                } catch (\Exception $e) {
-                    $data['error'] = $e->getMessage();
-                    $data['success'] = false;
-                }
-                return $data['result'] ?? null;
+                return $this->handleStageCustomer($data, $opts, $service);
             case 'stageTransaction':
-                $source = $opts['source'] ?? $data['source'] ?? '';
-                $txnData = $opts['transaction'] ?? $data['transaction'] ?? [];
-                if (!$this->authorizeAction('create', 'staging_transaction')) {
-                    $data['error'] = 'Unauthorized: insufficient permissions to stage transactions';
-                    $data['success'] = false;
-                    return null;
-                }
-                try {
-                    $result = $service->stageTransaction($txnData, $source);
-                    $data['result'] = $result->toArray();
-                    $data['success'] = true;
-                } catch (\Exception $e) {
-                    $data['error'] = $e->getMessage();
-                    $data['success'] = false;
-                }
-                return $data['result'] ?? null;
+                return $this->handleStageTransaction($data, $opts, $service);
             case 'stagePayment':
-                $source = $opts['source'] ?? $data['source'] ?? '';
-                $paymentData = $opts['payment'] ?? $data['payment'] ?? [];
-                $stagingTransactionId = isset($opts['staging_transaction_id'])
-                    ? (int)$opts['staging_transaction_id']
-                    : (isset($data['staging_transaction_id']) ? (int)$data['staging_transaction_id'] : null);
-                if (!$this->authorizeAction('create', 'staging_payment')) {
-                    $data['error'] = 'Unauthorized: insufficient permissions to stage payments';
-                    $data['success'] = false;
-                    return null;
-                }
-                try {
-                    $result = $service->stagePayment($paymentData, $source, $stagingTransactionId);
-                    $data['result'] = $result->toArray();
-                    $data['success'] = true;
-                } catch (\Exception $e) {
-                    $data['error'] = $e->getMessage();
-                    $data['success'] = false;
-                }
-                return $data['result'] ?? null;
+                return $this->handleStagePayment($data, $opts, $service);
             case 'stageOrUpdatePayment':
-                $source = $opts['source'] ?? $data['source'] ?? '';
-                $paymentData = $opts['payment'] ?? $data['payment'] ?? [];
-                $stagingTransactionId = isset($opts['staging_transaction_id'])
-                    ? (int)$opts['staging_transaction_id']
-                    : (isset($data['staging_transaction_id']) ? (int)$data['staging_transaction_id'] : null);
-                if (!$this->authorizeAction('create', 'staging_payment')) {
-                    $data['error'] = 'Unauthorized: insufficient permissions to stage payments';
-                    $data['success'] = false;
-                    return null;
-                }
-                try {
-                    $result = $service->stageOrUpdatePayment($paymentData, $source, $stagingTransactionId);
-                    $data['result'] = $result->toArray();
-                    $data['success'] = true;
-                } catch (\Exception $e) {
-                    $data['error'] = $e->getMessage();
-                    $data['success'] = false;
-                }
-                return $data['result'] ?? null;
+                return $this->handleStageOrUpdatePayment($data, $opts, $service);
             case 'getStagedCustomers':
-                $filters = $opts['filters'] ?? $data['filters'] ?? [];
-                $data['result'] = array_map(fn($c) => $c->toArray(), $service->getStagedCustomers($filters));
-                return $data['result'];
+                return $this->handleGetStagedCustomers($data, $opts, $service);
             case 'getStagedTransactions':
-                $filters = $opts['filters'] ?? $data['filters'] ?? [];
-                $data['result'] = array_map(fn($t) => $t->toArray(), $service->getStagedTransactions($filters));
-                return $data['result'];
+                return $this->handleGetStagedTransactions($data, $opts, $service);
             case 'getStagedPayments':
-                $filters = $opts['filters'] ?? $data['filters'] ?? [];
-                $data['result'] = array_map(fn($p) => $p->toArray(), $service->getStagedPayments($filters));
-                return $data['result'];
+                return $this->handleGetStagedPayments($data, $opts, $service);
             case 'getById':
-                $id = (int)($opts['id'] ?? $data['id'] ?? 0);
-                $entityType = $opts['entity_type'] ?? $data['entity_type'] ?? 'transaction';
-                $result = $this->getStagingById($id, $entityType, $service);
-                $data['result'] = $result;
-                return $result;
+                return $this->handleGetById($data, $opts, $service);
             case 'delete':
-                $id = (int)($opts['id'] ?? $data['id'] ?? 0);
-                $entityType = $opts['entity_type'] ?? $data['entity_type'] ?? 'transaction';
-                $this->deleteStagingRecord($id, $entityType, $service);
-                $data['success'] = true;
-                return true;
+                return $this->handleDelete($data, $opts, $service);
             case 'getStatusCounts':
-                $source = $opts['source'] ?? $data['source'] ?? null;
-                $env = $opts['environment'] ?? $data['environment'] ?? null;
-                $result = $this->getStatusCountsForSource($source, $env, $service);
-                $data['result'] = $result;
-                return $result;
+                return $this->handleGetStatusCounts($data, $opts, $service);
             case 'updateFields':
-                $id = (int)($opts['id'] ?? $data['id'] ?? 0);
-                $fields = $opts['fields'] ?? $data['fields'] ?? [];
-                $entityType = $opts['entity_type'] ?? $data['entity_type'] ?? 'transaction';
-                $this->updateStagingFields($id, $fields, $entityType, $service);
-                $data['success'] = true;
-                return true;
+                return $this->handleUpdateFields($data, $opts, $service);
             case 'getItemsByTransaction':
-                $stagingId = (int)($opts['staging_id'] ?? $data['staging_id'] ?? 0);
-                $result = $this->getItemsByTransactionId($stagingId, $service);
-                $data['result'] = $result;
-                return $result;
+                return $this->handleGetItemsByTransaction($data, $opts, $service);
             case 'deleteLineItemsByTransaction':
-                $stagingId = (int)($opts['staging_id'] ?? $data['staging_id'] ?? 0);
-                $service->deleteLineItemsByTransaction($stagingId);
-                $data['success'] = true;
-                return true;
+                return $this->handleDeleteLineItemsByTransaction($data, $opts, $service);
             case 'updateStatus':
-                $id = (int)($opts['id'] ?? $data['id'] ?? 0);
-                $status = $opts['status'] ?? $data['status'] ?? '';
-                $error = $opts['error'] ?? $data['error'] ?? null;
-                $service->updateStatus($id, $status, $error);
-                $data['success'] = true;
-                return true;
+                return $this->handleUpdateStatus($data, $opts, $service);
             default:
                 $data['error'] = 'Unknown staging action: ' . $action;
                 return null;
         }
+    }
+
+    private function handleStageCustomer(&$data, $opts, $service)
+    {
+        $source = $opts['source'] ?? $data['source'] ?? '';
+        $customerData = $opts['customer'] ?? $data['customer'] ?? [];
+        if (!$this->authorizeAction('create', 'staging_customer')) {
+            $data['error'] = 'Unauthorized: insufficient permissions to stage customers';
+            $data['success'] = false;
+            return null;
+        }
+        try {
+            $result = $service->stageCustomer($customerData, $source);
+            $data['result'] = $result->toArray();
+            $data['success'] = true;
+        } catch (\Exception $e) {
+            $data['error'] = $e->getMessage();
+            $data['success'] = false;
+        }
+        return $data['result'] ?? null;
+    }
+
+    private function handleStageTransaction(&$data, $opts, $service)
+    {
+        $source = $opts['source'] ?? $data['source'] ?? '';
+        $txnData = $opts['transaction'] ?? $data['transaction'] ?? [];
+        if (!$this->authorizeAction('create', 'staging_transaction')) {
+            $data['error'] = 'Unauthorized: insufficient permissions to stage transactions';
+            $data['success'] = false;
+            return null;
+        }
+        try {
+            $result = $service->stageTransaction($txnData, $source);
+            $data['result'] = $result->toArray();
+            $data['success'] = true;
+        } catch (\Exception $e) {
+            $data['error'] = $e->getMessage();
+            $data['success'] = false;
+        }
+        return $data['result'] ?? null;
+    }
+
+    private function handleStagePayment(&$data, $opts, $service)
+    {
+        $source = $opts['source'] ?? $data['source'] ?? '';
+        $paymentData = $opts['payment'] ?? $data['payment'] ?? [];
+        $stagingTransactionId = isset($opts['staging_transaction_id'])
+            ? (int)$opts['staging_transaction_id']
+            : (isset($data['staging_transaction_id']) ? (int)$data['staging_transaction_id'] : null);
+        if (!$this->authorizeAction('create', 'staging_payment')) {
+            $data['error'] = 'Unauthorized: insufficient permissions to stage payments';
+            $data['success'] = false;
+            return null;
+        }
+        try {
+            $result = $service->stagePayment($paymentData, $source, $stagingTransactionId);
+            $data['result'] = $result->toArray();
+            $data['success'] = true;
+        } catch (\Exception $e) {
+            $data['error'] = $e->getMessage();
+            $data['success'] = false;
+        }
+        return $data['result'] ?? null;
+    }
+
+    private function handleStageOrUpdatePayment(&$data, $opts, $service)
+    {
+        $source = $opts['source'] ?? $data['source'] ?? '';
+        $paymentData = $opts['payment'] ?? $data['payment'] ?? [];
+        $stagingTransactionId = isset($opts['staging_transaction_id'])
+            ? (int)$opts['staging_transaction_id']
+            : (isset($data['staging_transaction_id']) ? (int)$data['staging_transaction_id'] : null);
+        if (!$this->authorizeAction('create', 'staging_payment')) {
+            $data['error'] = 'Unauthorized: insufficient permissions to stage payments';
+            $data['success'] = false;
+            return null;
+        }
+        try {
+            $result = $service->stageOrUpdatePayment($paymentData, $source, $stagingTransactionId);
+            $data['result'] = $result->toArray();
+            $data['success'] = true;
+        } catch (\Exception $e) {
+            $data['error'] = $e->getMessage();
+            $data['success'] = false;
+        }
+        return $data['result'] ?? null;
+    }
+
+    private function handleGetStagedCustomers(&$data, $opts, $service)
+    {
+        $filters = $opts['filters'] ?? $data['filters'] ?? [];
+        $data['result'] = array_map(fn($c) => $c->toArray(), $service->getStagedCustomers($filters));
+        return $data['result'];
+    }
+
+    private function handleGetStagedTransactions(&$data, $opts, $service)
+    {
+        $filters = $opts['filters'] ?? $data['filters'] ?? [];
+        $data['result'] = array_map(fn($t) => $t->toArray(), $service->getStagedTransactions($filters));
+        return $data['result'];
+    }
+
+    private function handleGetStagedPayments(&$data, $opts, $service)
+    {
+        $filters = $opts['filters'] ?? $data['filters'] ?? [];
+        $data['result'] = array_map(fn($p) => $p->toArray(), $service->getStagedPayments($filters));
+        return $data['result'];
+    }
+
+    private function handleGetById(&$data, $opts, $service)
+    {
+        $id = (int)($opts['id'] ?? $data['id'] ?? 0);
+        $entityType = $opts['entity_type'] ?? $data['entity_type'] ?? 'transaction';
+        $result = $this->getStagingById($id, $entityType, $service);
+        $data['result'] = $result;
+        return $result;
+    }
+
+    private function handleDelete(&$data, $opts, $service)
+    {
+        $id = (int)($opts['id'] ?? $data['id'] ?? 0);
+        $entityType = $opts['entity_type'] ?? $data['entity_type'] ?? 'transaction';
+        $this->deleteStagingRecord($id, $entityType, $service);
+        $data['success'] = true;
+        return true;
+    }
+
+    private function handleGetStatusCounts(&$data, $opts, $service)
+    {
+        $source = $opts['source'] ?? $data['source'] ?? null;
+        $env = $opts['environment'] ?? $data['environment'] ?? null;
+        $result = $this->getStatusCountsForSource($source, $env, $service);
+        $data['result'] = $result;
+        return $result;
+    }
+
+    private function handleUpdateFields(&$data, $opts, $service)
+    {
+        $id = (int)($opts['id'] ?? $data['id'] ?? 0);
+        $fields = $opts['fields'] ?? $data['fields'] ?? [];
+        $entityType = $opts['entity_type'] ?? $data['entity_type'] ?? 'transaction';
+        $this->updateStagingFields($id, $fields, $entityType, $service);
+        $data['success'] = true;
+        return true;
+    }
+
+    private function handleGetItemsByTransaction(&$data, $opts, $service)
+    {
+        $stagingId = (int)($opts['staging_id'] ?? $data['staging_id'] ?? 0);
+        $result = $this->getItemsByTransactionId($stagingId, $service);
+        $data['result'] = $result;
+        return $result;
+    }
+
+    private function handleDeleteLineItemsByTransaction(&$data, $opts, $service)
+    {
+        $stagingId = (int)($opts['staging_id'] ?? $data['staging_id'] ?? 0);
+        $service->deleteLineItemsByTransaction($stagingId);
+        $data['success'] = true;
+        return true;
+    }
+
+    private function handleUpdateStatus(&$data, $opts, $service)
+    {
+        $id = (int)($opts['id'] ?? $data['id'] ?? 0);
+        $status = $opts['status'] ?? $data['status'] ?? '';
+        $error = $opts['error'] ?? $data['error'] ?? null;
+        $service->updateStatus($id, $status, $error);
+        $data['success'] = true;
+        return true;
     }
 
     private function handleMatchingRequest($action, &$data, $opts)
@@ -440,16 +519,19 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
 
     private function getDtoAdapter()
     {
-        $stagingService = $this->getStagingService();
-        $this->ensureRuntimeAutoload();
-        $tablePrefix = defined('TB_PREF') ? TB_PREF : '0_';
-        $db = new \ksf_ModulesDAO();
-        $transactionDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
-        $customerDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
-        $paymentDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
-        return new \ksfraser\FrontAccounting\ImportStaging\Services\DtoAdapter(
-            $stagingService, $transactionDAO, $customerDAO, $paymentDAO
-        );
+        static $adapter = null;
+        if ($adapter === null) {
+            $this->ensureRuntimeAutoload();
+            $tablePrefix = defined('TB_PREF') ? TB_PREF : '0_';
+            $db = new \ksf_ModulesDAO();
+            $transactionDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingTransactionDAO($tablePrefix, $db);
+            $customerDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingCustomerDAO($tablePrefix, $db);
+            $paymentDAO = new \ksfraser\FrontAccounting\ImportStaging\DAO\StagingPaymentDAO($tablePrefix, $db);
+            return new \ksfraser\FrontAccounting\ImportStaging\Services\DtoAdapter(
+                $this->getStagingService(), $transactionDAO, $customerDAO, $paymentDAO
+            );
+        }
+        return $adapter;
     }
 
     private function getStagingById(int $id, string $entityType, $service): ?array
@@ -496,7 +578,7 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
                 $dao->delete($id);
                 break;
             }
-    }
+        }
 
     private function getStatusCountsForSource(?string $source, ?string $env, $service): array
     {
@@ -541,7 +623,7 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
                 }
                 break;
             }
-    }
+        }
 
     private function getItemsByTransactionId(int $stagingId, $service): array
     {
@@ -598,140 +680,5 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
 
         $result = hook_invoke_first('authorize', $authData);
         return $result !== false;
-    }
-
-    /**
-     * @BABOK Related: FR-ISU-015-002 staging management UI
-     * @BABOK Related: NFR-ISU-004 security areas
-     */
-    function install_tabs($app)
-    {
-        global $path_to_root;
-
-        switch ($app->id) {
-            case 'orders':
-                $app->add_rapp_function(
-                    3,
-                    _('Import Staging'),
-                    $path_to_root . '/modules/' . $this->module_name . '/pages/import_statements.php',
-                    'SA_ksf_FA_ImportStagingProcessing',
-                    MENU_MAIN
-                );
-                $app->add_rapp_function(
-                    3,
-                    _('Process Staging'),
-                    $path_to_root . '/modules/' . $this->module_name . '/pages/process_statements.php',
-                    'SA_ksf_FA_ImportStagingProcessingMANAGE',
-                    MENU_MAIN
-                );
-                $app->add_rapp_function(
-                    3,
-                    _('View Staged'),
-                    $path_to_root . '/modules/' . $this->module_name . '/pages/view_statements.php',
-                    'SA_ksf_FA_ImportStagingProcessingVIEW',
-                    MENU_MAIN
-                );
-                break;
-            case 'stock':
-                $app->add_rapp_function(
-                    3,
-                    _('ISU Item Staging'),
-                    $path_to_root . '/modules/' . $this->module_name . '/pages/admin.php',
-                    'SA_ksf_FA_ImportStagingProcessing',
-                    MENU_MAIN
-                );
-                break;
-            case 'system':
-                $app->add_rapp_function(
-                    3,
-                    _('ISU Configuration'),
-                    $path_to_root . '/modules/' . $this->module_name . '/pages/config.php',
-                    'SA_ksf_FA_ImportStagingProcessingMANAGE',
-                    MENU_MAIN
-                );
-                break;
-        }
-    }
-
-    /**
-     * @BABOK Related: NFR-ISU-004 security areas
-     */
-    function install_access()
-    {
-        $SS = SS_ksf_FA_ImportStagingProcessing;
-        $security_sections[$SS] = _("Import Staging");
-        $security_areas['SA_ksf_FA_ImportStagingProcessing'] = array(
-            $SS | 108, _("Import Staging Processing")
-        );
-        $security_areas['SA_ksf_FA_ImportStagingProcessingVIEW'] = array(
-            $SS | 1, _("View Import Staging")
-        );
-        $security_areas['SA_ksf_FA_ImportStagingProcessingMANAGE'] = array(
-            $SS | 2, _("Manage Import Staging")
-        );
-        // UI page security areas (for backward compatibility)
-        $security_sections[SS_ksf_FA_ImportStagingProcessing_UI] = _("Import Staging Processing UI");
-        $security_areas['SA_ksf_FA_ImportStagingProcessing_UI'] = array(
-            SS_ksf_FA_ImportStagingProcessing_UI | 108, _("Import Staging Processing UI")
-        );
-        $security_areas['SA_ksf_FA_ImportStagingProcessing_UIVIEW'] = array(
-            SS_ksf_FA_ImportStagingProcessing_UI | 1, _("View Import Staging")
-        );
-        $security_areas['SA_ksf_FA_ImportStagingProcessing_UIMANAGE'] = array(
-            SS_ksf_FA_ImportStagingProcessing_UI | 2, _("Manage Import Staging")
-        );
-        return array($security_areas, $security_sections);
-    }
-
-    function activate_extension($company, $check_only = true)
-    {
-        if ($check_only) {
-            return true;
-        }
-
-        if (file_exists(dirname(__FILE__) . '/sql/install.sql')) {
-            $updates = array('install.sql' => array($this->module_name));
-            return $this->update_databases($company, $updates, $check_only);
-        }
-
-        return true;
-    }
-
-    function activate_extension($company, $check_only = true)
-    {
-        if (file_exists(dirname(__FILE__) . '/sql/install.sql')) {
-            $updates = array('install.sql' => array($this->module_name));
-            return $this->update_databases($company, $updates, $check_only);
-        }
-        try {
-            $this->ensure_composer_dependencies();
-        } catch (\Exception $e) {
-        }
-        return true;
-    }
-
-    function install_options($app)
-    {
-        global $path_to_root;
-    }
-
-    private function ensure_composer_dependencies()
-    {
-        $module_dir = dirname(__FILE__);
-        $autoload_path = $module_dir . '/vendor/autoload.php';
-        if (file_exists($autoload_path)) {
-            return;
-        }
-        $composer_path = $module_dir . '/composer.json';
-        if (!file_exists($composer_path)) {
-            return;
-        }
-        chdir($module_dir);
-        $output = array();
-        $return_code = 0;
-        exec('composer install --no-interaction --prefer-dist --ignore-platform-req=php 2>&1', $output, $return_code);
-        if ($return_code !== 0) {
-            error_log('KSF Module: composer install failed: ' . implode("\n", $output));
-        }
     }
 }

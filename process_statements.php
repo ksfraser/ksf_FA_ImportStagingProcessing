@@ -1,7 +1,7 @@
 <?php
 
 $path_to_root = "../..";
-$page_security = 'SA_SALESTRANSVIEW';
+$page_security = 'SA_ksf_FA_ImportStagingProcessing_UIMANAGE';
 include_once($path_to_root . "/includes/date_functions.inc");
 include_once($path_to_root . "/includes/session.inc");
 
