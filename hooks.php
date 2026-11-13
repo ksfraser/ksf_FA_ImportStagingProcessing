@@ -23,6 +23,7 @@ declare(strict_types=1);
  * @BABOK Related: FR-ISU-012-001 PROCESS_STAGING event handler
  * @BABOK Related: FR-ISU-017-001 install schema via activate_extension
  * @BABOK Related: FR-ISU-015-003 lapp/rapp menu registration
+ * @BABOK Related: NFR-ISU-004 page security
  * @BABOK Related: NFR-ISU-007 @BABOK traceability
  * @BABOK Related: NFR-ISU-010 native db_* calls only
  */
@@ -36,27 +37,59 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
     function __construct()
     {
         $this->module_name = 'ksf_FA_ImportStagingProcessing';
-        $this->registerMenuItems();
     }
 
     /**
-     * Register left/right menu items so the module is reachable from the FA UI.
+     * Register ISP menu items into FA's "External" section, alongside Square/WooCommerce.
+     *
+     * Follows the same pattern as ksf_FA_Square/hooks.php:install_options().
      *
      * @BABOK Related: FR-ISU-015-003 lapp/rapp menu registration
      */
-    private function registerMenuItems(): void
+    public function install_options($app)
     {
-        if (!function_exists('lapp') && !function_exists('rapp')) {
-            return;
+        global $path_to_root;
+
+        $hasExternal = false;
+        foreach ($app->modules as $mod) {
+            if ($mod->name === _("External")) {
+                $hasExternal = true;
+                break;
+            }
+        }
+        if (!$hasExternal) {
+            $app->add_module(_("External"));
         }
 
-        $modulePath = 'modules/' . KSF_IMPORT_STAGING_MODULE_NAME;
+        $externalLevel = 3;
+        foreach ($app->modules as $idx => $mod) {
+            if ($mod->name === _("External")) {
+                $externalLevel = $idx;
+                break;
+            }
+        }
 
-        lapp('import_staging', $modulePath . '/ksf_import_staging.php', _('Import Staging'), 'SA_ksf_FA_ImportStagingProcessing');
-        lapp('import_staging', $modulePath . '/pages/config.php', _('ISU Configuration'), 'SA_ksf_FA_ImportStagingProcessing_UI');
+        $modulePath = $path_to_root . '/modules/' . KSF_IMPORT_STAGING_MODULE_NAME;
 
-        rapp('import_staging', $modulePath . '/ksf_import_staging.php', _('Staging Dashboard'), 'SA_ksf_FA_ImportStagingProcessing');
-        rapp('import_staging', $modulePath . '/pages/config.php', _('ISU Config'), 'SA_ksf_FA_ImportStagingProcessing_UI');
+        $app->add_lapp_function($externalLevel, _('Import Staging'),
+            $modulePath . '/ksf_import_staging.php', 'SA_ksf_FA_ImportStagingProcessing');
+        $app->add_lapp_function($externalLevel, _('ISU Configuration'),
+            $modulePath . '/pages/config.php', 'SA_ksf_FA_ImportStagingProcessing_UI');
+        $app->add_rapp_function($externalLevel, _('ISU Config'),
+            $modulePath . '/pages/config.php', 'SA_ksf_FA_ImportStagingProcessing_UI');
+    }
+
+    /**
+     * Define ISP security areas so menu items are access-controlled.
+     *
+     * @BABOK Related: NFR-ISU-004 page security
+     */
+    public function install_access()
+    {
+        $security_sections[SS_ksf_FA_ImportStagingProcessing] = _("Import Staging");
+        $security_areas['SA_ksf_FA_ImportStagingProcessing']      = array(SS_ksf_FA_ImportStagingProcessing | 1, _("View Import Staging"));
+        $security_areas['SA_ksf_FA_ImportStagingProcessing_UI']   = array(SS_ksf_FA_ImportStagingProcessing | 2, _("Manage Import Staging"));
+        return array($security_areas, $security_sections);
     }
 
     public function getModuleConstants(&$data, $opts = null)
