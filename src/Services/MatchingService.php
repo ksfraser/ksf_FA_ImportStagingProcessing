@@ -4,7 +4,9 @@ declare(strict_types=1);
 namespace ksfraser\FrontAccounting\ImportStaging\Services;
 
 use ksfraser\FrontAccounting\ImportStaging\Contracts\MatchingServiceInterface;
+use ksfraser\FrontAccounting\Common\ContactResolver\Contract\ContactResolverInterface;
 use ksfraser\FrontAccounting\Common\Matching\GenericMatcher;
+use ksfraser\FrontAccounting\Common\Matching\Matcher;
 use ksfraser\FrontAccounting\Common\Matching\MatchingConfig;
 
 /**
@@ -29,6 +31,7 @@ use ksfraser\FrontAccounting\Common\Matching\MatchingConfig;
  * @BABOK Related: FR-ISU-013-002 payment match scoring (40/25/20/15)
  * @BABOK Related: NFR-COM-MATCH-001 generic matcher delegation
  * @BABOK Related: NFR-COM-MATCH-002 weighted scoring engine
+ * @BABOK Related: FR-COM-MATCH-025 ContactResolver person resolution
  */
 class MatchingService implements MatchingServiceInterface
 {
@@ -43,33 +46,40 @@ class MatchingService implements MatchingServiceInterface
     private const CUSTOMER_SCORE_CONTACT_NAME = 20.0;
     private const CUSTOMER_SCORE_ADDRESS = 15.0;
 
-    /** @var GenericMatcher */
-    private $genericMatcher;
+    /** @var Matcher */
+    private $matcher;
 
     /**
      * @param float $autoApproveThreshold
      * @param float $reviewThreshold
+     * @param ContactResolverInterface|null $contactResolver
      * @since 2.0.0
      * @BABOK Related: FR-ISU-010-001 autoApproveThreshold
      * @BABOK Related: FR-ISU-011-001 reviewThreshold
      */
-    public function __construct(float $autoApproveThreshold = 0.95, float $reviewThreshold = 0.80)
+    public function __construct(float $autoApproveThreshold = 0.95, float $reviewThreshold = 0.80, ContactResolverInterface $contactResolver = null)
     {
         $this->autoApproveThreshold = $autoApproveThreshold;
         $this->reviewThreshold = $reviewThreshold;
 
         $config = new MatchingConfig(array(
             'field_map'          => array(
-                'amount'    => 'total_amount',
-                'date'      => 'transaction_date',
-                'name'      => 'customer_name',
-                'reference' => 'source_transaction_id',
+                'person_id'  => 'person_id',
+                'email'      => 'email',
+                'amount'     => 'total_amount',
+                'date'       => 'transaction_date',
+                'name'       => 'customer_name',
+                'phone'      => 'phone',
+                'reference'  => 'source_transaction_id',
             ),
             'weights'            => array(
-                'amount'    => 0.40,
-                'date'      => 0.25,
-                'name'      => 0.25,
-                'reference' => 0.10,
+                'person_id'  => 0.25,
+                'email'      => 0.20,
+                'amount'     => 0.15,
+                'date'       => 0.10,
+                'name'       => 0.20,
+                'phone'      => 0.05,
+                'reference'  => 0.05,
             ),
             'auto_approve'       => $autoApproveThreshold,
             'review'             => $reviewThreshold,
@@ -77,16 +87,17 @@ class MatchingService implements MatchingServiceInterface
             'date_tolerance_days'=> 1,
             'name_soundex'       => true,
         ));
-        $this->genericMatcher = new GenericMatcher($config);
+        $this->matcher = new Matcher($config, $contactResolver);
     }
 
     /**
      * Match a staged record against candidate existing records.
      *
-     * Delegates to GenericMatcher from ksf_FA_Common, which applies weighted
-     * scoring on amount (40%), date (25%), customer name (25%), and reference
-     * (10%). Returns results in the legacy array format for backward
-     * compatibility.
+     * Delegates to GenericMatcher from ksf_FA_Common via the Matcher wrapper,
+     * which applies weighted scoring on person_id (25%), email (20%), name
+     * (20%), phone (5%), amount (15%), date (10%), and reference (5%).
+     * Person_id is resolved from email/name via ContactResolver if available.
+     * Returns results in the legacy array format for backward compatibility.
      *
      * @param array $stagedRecord
      * @param array $existingRecords
@@ -105,7 +116,7 @@ class MatchingService implements MatchingServiceInterface
             ];
         }
 
-        $result = $this->genericMatcher->match($stagedRecord, $existingRecords);
+        $result = $this->matcher->match($stagedRecord, $existingRecords);
 
         $candidates = array();
         foreach ($result->getCandidates() as $candidate) {
@@ -134,7 +145,7 @@ class MatchingService implements MatchingServiceInterface
      */
     public function autoApprove(float $confidence): bool
     {
-        return $this->genericMatcher->autoApprove($confidence);
+        return $this->matcher->autoApprove($confidence);
     }
 
     /**
@@ -147,7 +158,7 @@ class MatchingService implements MatchingServiceInterface
      */
     public function needsReview(float $confidence): bool
     {
-        return $this->genericMatcher->needsReview($confidence);
+        return $this->matcher->needsReview($confidence);
     }
 
     /**
@@ -176,8 +187,9 @@ class MatchingService implements MatchingServiceInterface
     /**
      * Calculate the match score between a staged record and an existing record.
      *
-     * Delegates to GenericMatcher's per-field scoring. Weights: amount 40%,
-     * date 25%, customer 25%, reference 10%.
+     * Delegates to GenericMatcher's per-field scoring via Matcher wrapper.
+     * Weights: person_id 25%, email 20%, amount 15%, date 10%, name 20%,
+     * phone 5%, reference 5%.
      *
      * @param array $staged
      * @param array $existing
@@ -187,7 +199,7 @@ class MatchingService implements MatchingServiceInterface
      */
     public function calculateMatchScore(array $staged, array $existing): float
     {
-        $result = $this->genericMatcher->match($staged, [$existing]);
+        $result = $this->matcher->match($staged, [$existing]);
         return $result->getConfidence();
     }
 
@@ -204,13 +216,13 @@ class MatchingService implements MatchingServiceInterface
      */
     public function matchAmount(float $amountA, float $amountB): float
     {
-        return $this->genericMatcher->scoreAmount($amountA, $amountB);
+        return $this->matcher->scoreAmount($amountA, $amountB);
     }
 
     /**
      * Match two dates within a 1-day tolerance.
      *
-     * Delegated to GenericMatcher::scoreDate().
+     * Delegated to Matcher::scoreDate() (via GenericMatcher).
      *
      * @param string $dateA
      * @param string $dateB
@@ -220,7 +232,7 @@ class MatchingService implements MatchingServiceInterface
      */
     public function matchDate(string $dateA, string $dateB): float
     {
-        return $this->genericMatcher->scoreDate($dateA, $dateB);
+        return $this->matcher->scoreDate($dateA, $dateB);
     }
 
     /**
@@ -324,7 +336,7 @@ class MatchingService implements MatchingServiceInterface
      */
     public function matchName(string $nameA, string $nameB): float
     {
-        return $this->genericMatcher->scoreName($nameA, $nameB);
+        return $this->matcher->scoreName($nameA, $nameB);
     }
 
     /**
