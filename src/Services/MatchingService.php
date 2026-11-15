@@ -4,14 +4,20 @@ declare(strict_types=1);
 namespace ksfraser\FrontAccounting\ImportStaging\Services;
 
 use ksfraser\FrontAccounting\ImportStaging\Contracts\MatchingServiceInterface;
+use ksfraser\FrontAccounting\Common\Matching\GenericMatcher;
+use ksfraser\FrontAccounting\Common\Matching\MatchingConfig;
 
 /**
  * Scoring-based matching service for staged records.
  *
- * Implements MatchingServiceInterface. Computes match confidence between
- * staged records and existing FA records using weighted factors (amount,
- * date, customer, reference). Provides auto-approve (>=95%) and
- * needs-review (80-95%) thresholds.
+ * Delegates core scoring to the generic matcher in ksf_FA_Common
+ * (ksfraser\FrontAccounting\Common\Matching\GenericMatcher), configured with
+ * ISP field-name mappings (total_amount→amount, transaction_date→date,
+ * customer_name→name, source_transaction_id→reference) and ISP weights
+ * (amount 40%, date 25%, customer 25%, reference 10%).
+ *
+ * ISP-specific methods (matchByCustomer, calculateCustomerMatchScore,
+ * matchPhone, addressMatch, etc.) are retained for backward compatibility.
  *
  * @since 2.0.0
  * @BABOK Related: FR-ISU-009-001 matching algorithm
@@ -21,7 +27,8 @@ use ksfraser\FrontAccounting\ImportStaging\Contracts\MatchingServiceInterface;
  * @BABOK Related: FR-ISU-011-001 review 80-95% threshold
  * @BABOK Related: FR-ISU-011-002 threshold configurable
  * @BABOK Related: FR-ISU-013-002 payment match scoring (40/25/20/15)
- * @BABOK Related: NFR-ISU-009 Strategy pattern
+ * @BABOK Related: NFR-COM-MATCH-001 generic matcher delegation
+ * @BABOK Related: NFR-COM-MATCH-002 weighted scoring engine
  */
 class MatchingService implements MatchingServiceInterface
 {
@@ -36,6 +43,9 @@ class MatchingService implements MatchingServiceInterface
     private const CUSTOMER_SCORE_CONTACT_NAME = 20.0;
     private const CUSTOMER_SCORE_ADDRESS = 15.0;
 
+    /** @var GenericMatcher */
+    private $genericMatcher;
+
     /**
      * @param float $autoApproveThreshold
      * @param float $reviewThreshold
@@ -47,13 +57,36 @@ class MatchingService implements MatchingServiceInterface
     {
         $this->autoApproveThreshold = $autoApproveThreshold;
         $this->reviewThreshold = $reviewThreshold;
+
+        $config = new MatchingConfig(array(
+            'field_map'          => array(
+                'amount'    => 'total_amount',
+                'date'      => 'transaction_date',
+                'name'      => 'customer_name',
+                'reference' => 'source_transaction_id',
+            ),
+            'weights'            => array(
+                'amount'    => 0.40,
+                'date'      => 0.25,
+                'name'      => 0.25,
+                'reference' => 0.10,
+            ),
+            'auto_approve'       => $autoApproveThreshold,
+            'review'             => $reviewThreshold,
+            'amount_tolerance'   => 0.01,
+            'date_tolerance_days'=> 1,
+            'name_soundex'       => true,
+        ));
+        $this->genericMatcher = new GenericMatcher($config);
     }
 
     /**
      * Match a staged record against candidate existing records.
      *
-     * Scores each candidate and returns the best match with confidence,
-     * match type, and top 5 candidates.
+     * Delegates to GenericMatcher from ksf_FA_Common, which applies weighted
+     * scoring on amount (40%), date (25%), customer name (25%), and reference
+     * (10%). Returns results in the legacy array format for backward
+     * compatibility.
      *
      * @param array $stagedRecord
      * @param array $existingRecords
@@ -71,22 +104,22 @@ class MatchingService implements MatchingServiceInterface
                 'candidates' => [],
             ];
         }
-        $candidates = [];
-        foreach ($existingRecords as $record) {
-            $score = $this->calculateMatchScore($stagedRecord, $record);
+
+        $result = $this->genericMatcher->match($stagedRecord, $existingRecords);
+
+        $candidates = array();
+        foreach ($result->getCandidates() as $candidate) {
             $candidates[] = [
-                'record' => $record,
-                'score' => $score,
-                'details' => $this->getMatchDetails($stagedRecord, $record),
+                'record'  => $candidate->getRecord(),
+                'score'   => $candidate->getConfidence(),
+                'details' => $candidate->getFieldDetails(),
             ];
         }
-        usort($candidates, fn($a, $b) => $b['score'] <=> $a['score']);
-        $bestScore = $candidates[0]['score'] ?? 0.0;
-        $matchType = $this->determineMatchType($bestScore);
+
         return [
-            'confidence' => $bestScore,
-            'match_type' => $matchType,
-            'details' => $candidates[0]['details'] ?? [],
+            'confidence' => $result->getConfidence(),
+            'match_type' => $result->getMatchType(),
+            'details'    => $result->getDetails(),
             'candidates' => array_slice($candidates, 0, 5),
         ];
     }
@@ -101,7 +134,7 @@ class MatchingService implements MatchingServiceInterface
      */
     public function autoApprove(float $confidence): bool
     {
-        return $confidence >= $this->autoApproveThreshold;
+        return $this->genericMatcher->autoApprove($confidence);
     }
 
     /**
@@ -114,7 +147,7 @@ class MatchingService implements MatchingServiceInterface
      */
     public function needsReview(float $confidence): bool
     {
-        return $confidence >= $this->reviewThreshold && $confidence < $this->autoApproveThreshold;
+        return $this->genericMatcher->needsReview($confidence);
     }
 
     /**
@@ -143,7 +176,8 @@ class MatchingService implements MatchingServiceInterface
     /**
      * Calculate the match score between a staged record and an existing record.
      *
-     * Weights: amount 40%, date 25%, customer 25%, reference 10%.
+     * Delegates to GenericMatcher's per-field scoring. Weights: amount 40%,
+     * date 25%, customer 25%, reference 10%.
      *
      * @param array $staged
      * @param array $existing
@@ -153,29 +187,14 @@ class MatchingService implements MatchingServiceInterface
      */
     public function calculateMatchScore(array $staged, array $existing): float
     {
-        $score = 0.0;
-        $amountWeight = 0.4;
-        $dateWeight = 0.25;
-        $customerWeight = 0.25;
-        $referenceWeight = 0.1;
-        if (isset($staged['total_amount'], $existing['total_amount'])) {
-            $score += $this->matchAmount((float)$staged['total_amount'], (float)$existing['total_amount']) * $amountWeight;
-        }
-        if (isset($staged['transaction_date'], $existing['transaction_date'])) {
-            $score += $this->matchDate($staged['transaction_date'], $existing['transaction_date']) * $dateWeight;
-        }
-        if (isset($staged['customer_name'], $existing['customer_name'])) {
-            $score += $this->matchName($staged['customer_name'], $existing['customer_name']) * $customerWeight;
-        }
-        if (isset($staged['source_transaction_id'], $existing['source_transaction_id'])) {
-            $score += $this->exactMatch($staged['source_transaction_id'], $existing['source_transaction_id']) * $referenceWeight;
-        }
-        $totalWeight = $amountWeight + $dateWeight + $customerWeight + $referenceWeight;
-        return $totalWeight > 0 ? $score / $totalWeight : 0.0;
+        $result = $this->genericMatcher->match($staged, [$existing]);
+        return $result->getConfidence();
     }
 
     /**
      * Match two monetary amounts with 1% tolerance.
+     *
+     * Delegated to GenericMatcher::scoreAmount().
      *
      * @param float $amountA
      * @param float $amountB
@@ -185,23 +204,13 @@ class MatchingService implements MatchingServiceInterface
      */
     public function matchAmount(float $amountA, float $amountB): float
     {
-        if ($amountA == 0 && $amountB == 0) {
-            return 1.0;
-        }
-        $diff = abs($amountA - $amountB);
-        $max = max(abs($amountA), abs($amountB));
-        if ($max == 0) {
-            return 0.0;
-        }
-        $tolerance = $max * 0.01;
-        if ($diff <= $tolerance) {
-            return 1.0;
-        }
-        return max(0.0, 1.0 - ($diff / $max));
+        return $this->genericMatcher->scoreAmount($amountA, $amountB);
     }
 
     /**
      * Match two dates within a 1-day tolerance.
+     *
+     * Delegated to GenericMatcher::scoreDate().
      *
      * @param string $dateA
      * @param string $dateB
@@ -211,22 +220,14 @@ class MatchingService implements MatchingServiceInterface
      */
     public function matchDate(string $dateA, string $dateB): float
     {
-        try {
-            $dtA = new \DateTimeImmutable($dateA);
-            $dtB = new \DateTimeImmutable($dateB);
-            $diff = abs($dtA->getTimestamp() - $dtB->getTimestamp());
-            $tolerance = 86400;
-            if ($diff <= $tolerance) {
-                return 1.0;
-            }
-            return max(0.0, 1.0 - ($diff / $tolerance));
-        } catch (\Exception $e) {
-            return 0.0;
-        }
+        return $this->genericMatcher->scoreDate($dateA, $dateB);
     }
 
     /**
      * Match staged records against existing records by customer fields.
+     *
+     * ISP-specific customer matching (email, phone, company, contact name,
+     * address) not covered by the generic matcher. Retained as-is.
      *
      * @param array $staged
      * @param array $existingRecords
@@ -255,6 +256,8 @@ class MatchingService implements MatchingServiceInterface
 
     /**
      * Calculate a customer match score (email/phone/name/address/weighted).
+     *
+     * ISP-specific, not covered by generic matcher. Retained as-is.
      *
      * @param array $staged
      * @param array $existing
@@ -309,7 +312,83 @@ class MatchingService implements MatchingServiceInterface
     }
 
     /**
+     * Match two names using soundex + levenshtein.
+     *
+     * Delegated to GenericMatcher::scoreName().
+     *
+     * @param string $nameA
+     * @param string $nameB
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 matchName
+     */
+    public function matchName(string $nameA, string $nameB): float
+    {
+        return $this->genericMatcher->scoreName($nameA, $nameB);
+    }
+
+    /**
+     * Match two phone numbers (exact or last-7-digit match).
+     *
+     * ISP-specific, retained as-is.
+     *
+     * @param string $phoneA
+     * @param string $phoneB
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 matchPhone
+     */
+    public function matchPhone(string $phoneA, string $phoneB): float
+    {
+        $cleanA = preg_replace('/[^0-9]/', '', $phoneA);
+        $cleanB = preg_replace('/[^0-9]/', '', $phoneB);
+        if ($cleanA === $cleanB) {
+            return 1.0;
+        }
+        if (substr($cleanA, -7) === substr($cleanB, -7)) {
+            return 0.7;
+        }
+        return 0.0;
+    }
+
+    /**
+     * Exact match two strings (1.0 if equal, 0.0 otherwise).
+     *
+     * Delegated to GenericMatcher::scoreReference() for exact match logic.
+     *
+     * @param string $valueA
+     * @param string $valueB
+     * @return float
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 exactMatch
+     */
+    public function exactMatch(string $valueA, string $valueB): float
+    {
+        return $valueA === $valueB ? 1.0 : 0.0;
+    }
+
+    /**
+     * Match two addresses (substring containment either direction).
+     *
+     * ISP-specific, retained as-is.
+     *
+     * @param string $addrA
+     * @param string $addrB
+     * @return bool
+     * @since 2.0.0
+     * @BABOK Related: FR-ISU-009-002 addressMatch
+     */
+    public function addressMatch(string $addrA, string $addrB): bool
+    {
+        $normA = strtolower(trim(preg_replace('/\s+/', ' ', $addrA)));
+        $normB = strtolower(trim(preg_replace('/\s+/', ' ', $addrB)));
+        return strpos($normA, $normB) !== false || strpos($normB, $normA) !== false;
+    }
+
+    /**
      * Fuzzy-match two strings (exact, substring, or levenshtein < 20%).
+     *
+     * ISP-specific, retained as-is.
      *
      * @param string $a
      * @param string $b
@@ -335,82 +414,11 @@ class MatchingService implements MatchingServiceInterface
     }
 
     /**
-     * Match two addresses (substring containment either direction).
-     *
-     * @param string $addrA
-     * @param string $addrB
-     * @return bool
-     * @since 2.0.0
-     * @BABOK Related: FR-ISU-009-002 addressMatch
-     */
-    public function addressMatch(string $addrA, string $addrB): bool
-    {
-        $normA = strtolower(trim(preg_replace('/\s+/', ' ', $addrA)));
-        $normB = strtolower(trim(preg_replace('/\s+/', ' ', $addrB)));
-        return strpos($normA, $normB) !== false || strpos($normB, $normA) !== false;
-    }
-
-    /**
-     * Match two names using similar_text percentage.
-     *
-     * @param string $nameA
-     * @param string $nameB
-     * @return float
-     * @since 2.0.0
-     * @BABOK Related: FR-ISU-009-002 matchName
-     */
-    public function matchName(string $nameA, string $nameB): float
-    {
-        $normalizedA = strtolower(trim(preg_replace('/\s+/', ' ', $nameA)));
-        $normalizedB = strtolower(trim(preg_replace('/\s+/', ' ', $nameB)));
-        if ($normalizedA === $normalizedB) {
-            return 1.0;
-        }
-        $similarity = 0.0;
-        similar_text($normalizedA, $normalizedB, $similarity);
-        return $similarity / 100.0;
-    }
-
-    /**
-     * Match two phone numbers (exact or last-7-digit match).
-     *
-     * @param string $phoneA
-     * @param string $phoneB
-     * @return float
-     * @since 2.0.0
-     * @BABOK Related: FR-ISU-009-002 matchPhone
-     */
-    public function matchPhone(string $phoneA, string $phoneB): float
-    {
-        $cleanA = preg_replace('/[^0-9]/', '', $phoneA);
-        $cleanB = preg_replace('/[^0-9]/', '', $phoneB);
-        if ($cleanA === $cleanB) {
-            return 1.0;
-        }
-        if (substr($cleanA, -7) === substr($cleanB, -7)) {
-            return 0.7;
-        }
-        return 0.0;
-    }
-
-    /**
-     * Exact match two strings (1.0 if equal, 0.0 otherwise).
-     *
-     * @param string $valueA
-     * @param string $valueB
-     * @return float
-     * @since 2.0.0
-     * @BABOK Related: FR-ISU-009-002 exactMatch
-     */
-    public function exactMatch(string $valueA, string $valueB): float
-    {
-        return $valueA === $valueB ? 1.0 : 0.0;
-    }
-
-    /**
      * Calculate a payment match score against an FA record.
      *
-     * Weights: amount 40%, date 25%, reference 20%, method 15%.
+     * Weights: amount 40%, date 25%, reference 20%, method 15%. ISP-specific
+     * payment scoring not covered by the generic matcher (uses payment_method
+     * field). Retained as-is.
      *
      * @param array $payment
      * @param array $faRecord

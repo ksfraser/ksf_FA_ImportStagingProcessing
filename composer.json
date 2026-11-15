@@ -25,6 +25,11 @@
         {
             "type": "vcs",
             "url": "https://github.com/ksfraser/Traits.git"
+        },
+        {
+            "type": "path",
+            "url": "/home/kevin/Documents/ksf_FA_Common",
+            "canonical": false
         }
     ],
     "require": {
@@ -35,7 +40,8 @@
         "ksfraser/staging-dto": "^0.0.1",
         "ksfraser/file": "dev-main",
         "ksfraser/traits": "dev-main",
-        "ksfraser/exceptions": "^1.3"
+        "ksfraser/exceptions": "^1.3",
+        "ksfraser/ksf-fa-common": "@dev"
     },
     "require-dev": {
         "phpunit/phpunit": "^9.6",
