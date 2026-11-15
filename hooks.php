@@ -80,8 +80,6 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
             $entryPoint . '?action=staging&amp;sub_action=transactions', 'SA_ksf_FA_ImportStagingProcessing_UI');
         $app->add_lapp_function($externalLevel, _('Staged Payments'),
             $entryPoint . '?action=staging&amp;sub_action=payments', 'SA_ksf_FA_ImportStagingProcessing_UI');
-        $app->add_lapp_function($externalLevel, _('ISU Configuration'),
-            $entryPoint . '?action=config', 'SA_ksf_FA_ImportStagingProcessing_UI');
         $app->add_rapp_function($externalLevel, _('ISU Config'),
             $entryPoint . '?action=config', 'SA_ksf_FA_ImportStagingProcessing_UI');
     }
