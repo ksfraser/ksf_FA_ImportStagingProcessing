@@ -24,8 +24,7 @@ require_once __DIR__ . '/vendor/autoload.php';
 
 use ksfraser\FrontAccounting\ImportStaging\Http\ImportStagingRouter;
 
-$path_to_root = __DIR__ . '/..';
-$path = $path_to_root . '/modules/' . 'ksf_FA_ImportStagingProcessing';
+$path_to_root = '../..';
 
 // Resolve action (default: dashboard)
 $action = $_REQUEST['action'] ?? 'dashboard';
@@ -37,22 +36,34 @@ $page_security = $router->getSecurityAreaForAction($action);
 // Include FA session.inc (validates user, sets $page_security context)
 include_once($path_to_root . '/includes/session.inc');
 
-// Add module-specific access extensions
+// Add module-specific access extensions (registers our security_areas)
 add_access_extensions();
 
 // Validate the user can access this action's security area
-if (!$_SESSION["wa_current_user"]->can_access_page($page_security)) {
+if (!isset($_SESSION["wa_current_user"]) || !$_SESSION["wa_current_user"]->can_access_page($page_security)) {
     display_error(_('The security settings on your account do not permit you to access this function.'));
     end_page();
     exit;
 }
 
-// Page header
+// Page header — FA 2.4.3 provides page(), not start_page(). Define start_page
+// as a compatibility wrapper if it doesn't already exist.
+if (!function_exists('start_page')) {
+    function start_page($title, $no_menu = false, $is_index = false, $onload = "", $js = "", $css = '')
+    {
+        page($title, $no_menu, $is_index, $onload, $js, false, $css);
+    }
+}
+
 $help_context = $router->getHelpContextForAction($action);
 start_page($help_context);
 
-// Dispatch to the SRP action handler
-$router->dispatch($action, $_REQUEST);
+// Dispatch to the SRP action handler — catch exceptions to avoid blank 500
+try {
+    $router->dispatch($action, $_REQUEST);
+} catch (\Throwable $e) {
+    display_error(_('ISP router error: ') . $e->getMessage());
+}
 
 // Page footer
 end_page();
