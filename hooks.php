@@ -72,7 +72,7 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         $modulePath = $path_to_root . '/modules/' . KSF_IMPORT_STAGING_MODULE_NAME;
         $entryPoint = $modulePath . '/ksf_import_staging.php';
 
-        $app->add_lapp_function($externalLevel, _('Import Staging'),
+        $app->add_lapp_function($externalLevel, _('Import Staging Dashboard'),
             $entryPoint . '?action=dashboard', 'SA_ksf_FA_ImportStagingProcessing');
         $app->add_lapp_function($externalLevel, _('Staged Customers'),
             $entryPoint . '?action=staging&amp;sub_action=customers', 'SA_ksf_FA_ImportStagingProcessing_UI');
