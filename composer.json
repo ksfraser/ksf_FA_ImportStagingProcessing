@@ -66,7 +66,7 @@
             "name": "Import Staging Processing",
             "description": "Unified staging and processing for post-import operations",
             "page": "ksf_import_staging.php",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "depends": ["ksf_ModulesDAO", "ksf_libs"]
         }
     }
