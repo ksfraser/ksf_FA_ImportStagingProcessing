@@ -70,13 +70,20 @@ class hooks_ksf_FA_ImportStagingProcessing extends hooks
         }
 
         $modulePath = $path_to_root . '/modules/' . KSF_IMPORT_STAGING_MODULE_NAME;
+        $entryPoint = $modulePath . '/ksf_import_staging.php';
 
         $app->add_lapp_function($externalLevel, _('Import Staging'),
-            $modulePath . '/ksf_import_staging.php', 'SA_ksf_FA_ImportStagingProcessing');
+            $entryPoint . '?action=dashboard', 'SA_ksf_FA_ImportStagingProcessing');
+        $app->add_lapp_function($externalLevel, _('Staged Customers'),
+            $entryPoint . '?action=staging&amp;sub_action=customers', 'SA_ksf_FA_ImportStagingProcessing_UI');
+        $app->add_lapp_function($externalLevel, _('Staged Transactions'),
+            $entryPoint . '?action=staging&amp;sub_action=transactions', 'SA_ksf_FA_ImportStagingProcessing_UI');
+        $app->add_lapp_function($externalLevel, _('Staged Payments'),
+            $entryPoint . '?action=staging&amp;sub_action=payments', 'SA_ksf_FA_ImportStagingProcessing_UI');
         $app->add_lapp_function($externalLevel, _('ISU Configuration'),
-            $modulePath . '/pages/config.php', 'SA_ksf_FA_ImportStagingProcessing_UI');
+            $entryPoint . '?action=config', 'SA_ksf_FA_ImportStagingProcessing_UI');
         $app->add_rapp_function($externalLevel, _('ISU Config'),
-            $modulePath . '/pages/config.php', 'SA_ksf_FA_ImportStagingProcessing_UI');
+            $entryPoint . '?action=config', 'SA_ksf_FA_ImportStagingProcessing_UI');
     }
 
     /**
