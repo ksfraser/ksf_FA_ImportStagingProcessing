@@ -25,11 +25,6 @@
         {
             "type": "vcs",
             "url": "https://github.com/ksfraser/Traits.git"
-        },
-        {
-            "type": "path",
-            "url": "/home/kevin/Documents/ksf_FA_Common",
-            "canonical": false
         }
     ],
     "require": {
